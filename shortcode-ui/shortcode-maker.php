@@ -2,7 +2,7 @@
 /*
 Plugin Name: ShortCodes UI
 Plugin URI: http://en.bainternet.info
-Description: A Brand New Plugin
+Description: Still Work In Progress
 Version: 1.0
 Author: Bainternet
 Author URI: http://en.bainternet.info
