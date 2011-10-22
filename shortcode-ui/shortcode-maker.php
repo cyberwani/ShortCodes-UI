@@ -2,11 +2,12 @@
 /*
 Plugin Name: ShortCodes UI
 Plugin URI: http://en.bainternet.info
-Description: Still Work In Progress
+Description: Admin UI for creating ShortCodes in WordPress Still Work In Progress
 Version: 1.0
 Author: Bainternet
 Author URI: http://en.bainternet.info
 */
+
 if ( !class_exists('BA_ShortCode_Maker')){
 	class BA_ShortCode_Maker {
 		
@@ -250,6 +251,10 @@ JS;
 		    	
 		    	//select shortcode
 				$("#sc_name").change(function() {
+					if ($("#sc_name").val() == 0 ){
+						$(".sc_ui").html("");
+						return false;
+					}
 					$(".sc_status").show('fast');
 					$(".sc_ui").html('');
 					$.ajaxSetup({ cache: false });
@@ -534,7 +539,7 @@ JS;
 				if (isset($sc_meta[$prefix.'sh_tag'])){
 					$sc_tag = $sc_meta[$prefix.'sh_tag'][0];
 					//avoid duplicate shortcode tags
-					$sc_tag = $this->avoid_duplicate_shortcode_tags($sc_tag);
+					$sc_tag = $this->avoid_duplicate_shortcode_tags($sc_tag,$p);
 					
 					
 					$this->sc_tags[$sc_tag]= array( 'id' => $p,'head'=>false,'body'=>false); 
@@ -1082,6 +1087,7 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 						<div id="Import">
 							<h4><?php _e('Import'); ?></h4>
 							<p><?php _e('To Import ShortCodes paste the Export output in to the Import Code box bellow and click Import.'); ?></p>
+							<div style="float: right;"><input class="button-primary" type="button" name="import_demo" value="<?php _E('Install Demo ShortCodes');?>" id="su_ui_import_demo" /></div>
 							<div class="import_code"><label for="import_code"><?php _E('Import Code');?></label><br/>
 								<textarea id="import_code" style="width: 760px; height: 160px;"></textarea><br/>
 								<input type="hidden" id="sc_ui_Import_sc" name="sc_ui_Import_sc" value="<?php echo wp_create_nonce("sc_ui_Import_sc");?>" />
@@ -1093,9 +1099,10 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 						</div>
 						<div id="stn">
 							<h4><?php _e('Export Shortcode as Standalone Plugin'); ?></h4>
-							<p style="color: red;font-size: 28px;><strong><?php _e('Comming soon!')?></strong></p>
-							<p><?php _e('You can Use this option to export a shortcode as a plugin and and install it in any site you want, sell it or share it at the WordPress Plugin repository, Anything YOU WANT.')?></p>
-						
+							<div>
+								<p><span style="color: red;font-size: 28px;"><strong><?php _e('Comming soon!')?></strong></span></p>
+								<p><?php echo __('You can Use this option to export a shortcode as a plugin and and install it in any site you want, sell it or share it at the WordPress Plugin repository, Anything YOU WANT.')?></p>
+							</div>
 						</div>	
 				</div>
 			</div>
@@ -1120,7 +1127,7 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 		public function get_shortcode_export($post_id){
 			//shortcode post row
 			$po = get_post($post_id,'ARRAY_A');
-			$p = array();
+			$p = $tmp_meta = array();
 			$fs = array('post_content','post_title','post_status','post_excerpt','comment_status','post_password','post_type');
 			foreach($fs as $key){
 				$p[$key] = $po[$key]; 	
@@ -1129,6 +1136,11 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 			$meta = get_post_custom($post_id);
 			unset($meta['_edit_last']);
 			unset($meta['_edit_lock']);
+			/*
+			foreach ($meta as $m_key => $m_val){
+				$tmp_meta[$m_key] = get_post_custom($post_id,$m_key,true);
+			}
+			*/
 			
 			//shortcode tax
 			$tax = array();
@@ -1169,7 +1181,11 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 				if (!is_wp_error($sc_id) && $sc_id > 0){
 					//insert meta
 					foreach ($sc['meta'] as $k => $v){
-						update_post_meta($sc_id,$k,$v[0]);
+						if ($k == "_bascsh_attr" || $k == "_bascsh_external"){
+							update_post_meta($sc_id,$k,unserialize($v[0]));
+						}else{
+							update_post_meta($sc_id,$k,$v[0]);
+						}
 					}
 					//taxonomy
 					wp_set_object_terms($sc_id,(array)$sc['tax'],'bs_sh_cats');
@@ -1232,6 +1248,8 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 			}
 			return $sc_tag;
 		}
+		
+		//import demo shortcodes
 	}//end class
 }//end if
 
