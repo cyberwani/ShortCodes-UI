@@ -2,7 +2,7 @@
 /*
 Plugin Name: ShortCodes UI
 Plugin URI: http://en.bainternet.info
-Description: Admin UI for creating ShortCodes in WordPress Still Work In Progress
+Description: Admin UI for creating ShortCodes in WordPress removing the need for you to write any code. Still Work In Progress
 Version: 1.0
 Author: Bainternet
 Author URI: http://en.bainternet.info
@@ -143,6 +143,12 @@ if ( !class_exists('BA_ShortCode_Maker')){
 					// closes Thickbox
 					tb_remove();
 		    	});
+		    	
+		    	if (jQuery("#_bascimported").val() == 1){
+					jQuery("#_basc_Author_Name").attr("disabled", true); 
+					jQuery("#_basc_Author_url").attr("disabled", true); 
+					jQuery("#_basc_Support_url").attr("disabled", true); 
+				}
 		    });
 		    function microtime(get_as_float) {  
      			var now = new Date().getTime() / 1000;  
@@ -744,7 +750,7 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 			$my_meta_4->addText($prefix.'_Author_Name',array('name'=> 'Author Name'));
 			$my_meta_4->addText($prefix.'_Author_url',array('name'=> 'Author Url'));
 			$my_meta_4->addText($prefix.'_Support_url',array('name'=> 'ShortCode Support Url'));
-			
+			$my_meta_4->addHidden($prefix.'imported',array('std'=>"0"));
 			$my_meta_4->Finish();
 	
 		}
@@ -1187,6 +1193,8 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 							update_post_meta($sc_id,$k,$v[0]);
 						}
 					}
+					//set imported flag
+					update_post_meta($sc_id,'_bascimported',1);
 					//taxonomy
 					wp_set_object_terms($sc_id,(array)$sc['tax'],'bs_sh_cats');
 					return array('sc_title' => $sc['p']['post_title'], 'status' => __('Imported Successfully'), 'tag' => $sc['tag']);

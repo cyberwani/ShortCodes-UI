@@ -12,7 +12,7 @@
  * modify and change small things and adding a few field types that i needed to my personal preference. 
  * The original author did a great job in writing this class, so all props goes to him.
  * 
- * @version 0.1.2
+ * @version 0.1.3
  * @copyright 2011 
  * @author Ohad Raz (email: admin@bainternet.info)
  * @link http://en.bainternet.info
@@ -588,6 +588,33 @@ class AT_Meta_Box {
 	}
 	
 	/**
+	 * Show Field hidden.
+	 *
+	 * @param string $field 
+	 * @param string|mixed $meta 
+	 * @since 0.1.3
+	 * @access public
+	 */
+	public function show_field_hidden( $field, $meta) {	
+		//$this->show_field_begin( $field, $meta );
+		echo "<input type='hidden' class='at-text' name='{$field['id']}' id='{$field['id']}' value='{$meta}'/>";
+		//$this->show_field_end( $field, $meta );
+	}
+	
+	/**
+	 * Show Field Paragraph.
+	 *
+	 * @param string $field 
+	 * @since 0.1.3
+	 * @access public
+	 */
+	public function show_field_paragraph( $field) {	
+		//$this->show_field_begin( $field, $meta );
+		echo '<p>'.$field['value'].'</p>';
+		//$this->show_field_end( $field, $meta );
+	}
+		
+	/**
 	 * Show Field Textarea.
 	 *
 	 * @param string $field 
@@ -948,13 +975,17 @@ class AT_Meta_Box {
 			if ( class_exists( 'at_Meta_Box_Validate' ) && method_exists( 'at_Meta_Box_Validate', $field['validate_func'] ) ) {
 				$new = call_user_func( array( 'at_Meta_Box_Validate', $field['validate_func'] ), $new );
 			}
+			
+			//skip on Paragraph field
+			if ($type != "paragraph"){
 
-			// Call defined method to save meta value, if there's no methods, call common one.
-			$save_func = 'save_field_' . $type;
-			if ( method_exists( $this, $save_func ) ) {
-				call_user_func( array( &$this, 'save_field_' . $type ), $post_id, $field, $old, $new );
-			} else {
-				$this->save_field( $post_id, $field, $old, $new );
+				// Call defined method to save meta value, if there's no methods, call common one.
+				$save_func = 'save_field_' . $type;
+				if ( method_exists( $this, $save_func ) ) {
+					call_user_func( array( &$this, 'save_field_' . $type ), $post_id, $field, $old, $new );
+				} else {
+					$this->save_field( $post_id, $field, $old, $new );
+				}
 			}
 			
 		} // End foreach
@@ -1251,7 +1282,49 @@ class AT_Meta_Box {
 			return $new_field;
 		}
 	}
-
+	/**
+	 *  Add Hidden Field to meta box
+	 *  @author Ohad Raz
+	 *  @since 0.1.3
+	 *  @access public
+	 *  @param $id string  field id, i.e. the meta key
+	 *  @param $args mixed|array
+	 *  	'name' => // field name/label string optional
+	 *  	'desc' => // field description, string optional
+	 *  	'std' => // default value, string optional
+	 *  	'style' => 	// custom style for field, string optional
+	 *  	'validate_func' => // validate function, string optional
+	 *   @param $repeater bool  is this a field inside a repeatr? true|false(default) 
+	 */
+	public function addHidden($id,$args,$repeater=false){
+		$new_field = array('type' => 'hidden','id'=> $id,'std' => '','desc' => '','style' =>'','name' => 'Text Field');
+		$new_field = array_merge($new_field, $args);
+		if(false === $repeater){
+			$this->_fields[] = $new_field;
+		}else{
+			return $new_field;
+		}
+	}
+	
+	/**
+	 *  Add Paragraph to meta box
+	 *  @author Ohad Raz
+	 *  @since 0.1.3
+	 *  @access public
+	 *  @param $id string  field id, i.e. the meta key
+	 *  @param $value  paragraph html
+	 *  @param $repeater bool  is this a field inside a repeatr? true|false(default) 
+	 */
+	public function addParagraph($id,$args,$repeater=false){
+		$new_field = array('type' => 'paragraph','id'=> $id,'value' => '');
+		$new_field = array_merge($new_field, $args);
+		if(false === $repeater){
+			$this->_fields[] = $new_field;
+		}else{
+			return $new_field;
+		}
+	}
+		
 	/**
 	 *  Add Checkbox Field to meta box
 	 *  @author Ohad Raz
