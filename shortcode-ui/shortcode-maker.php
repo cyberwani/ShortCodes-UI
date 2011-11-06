@@ -7,7 +7,6 @@ Version: 1.0
 Author: Bainternet
 Author URI: http://en.bainternet.info
 */
-
 if ( !class_exists('BA_ShortCode_Maker')){
 	class BA_ShortCode_Maker {
 		
@@ -70,6 +69,9 @@ if ( !class_exists('BA_ShortCode_Maker')){
 			//tinymce button
 			global $pagenow,$typenow; 
 			if ($isadmin && $typenow !='ba_sh' && ($pagenow=='post-new.php' OR $pagenow=='post.php')){
+				add_action('admin_print_scripts',array($this,'register_scripts'));
+				add_action('admin_print_styles',array($this,'register_styles'));
+				
 				add_filter('admin_footer',array($this,'insert_shortcode_button'));
 				add_filter( 'mce_buttons', array($this,'Add_custom_buttons' ));
 				add_filter( 'tiny_mce_before_init', array($this,'Insert_custom_buttons' ));
@@ -96,6 +98,24 @@ if ( !class_exists('BA_ShortCode_Maker')){
 			
 	    }
 	    
+	    /*
+	     ****************************
+	     * 		  SimpleBox			*
+	     ****************************
+	     */
+	    
+	    //register and enqeue scripts
+	    public function register_scripts(){
+	    	$url = plugins_url('js/',__FILE__);
+	    	wp_enqueue_script('SimpleBox',$url.'SimpleBox/SimpleBox.js',array('jquery'),"",true );
+	    }
+	    
+	    //register and enqeue styles
+	    public function register_styles(){
+	    	$url = plugins_url('',__FILE__);
+	    	wp_enqueue_style( 'SimpleBox',$url.'/js/SimpleBox/SimpleBox.css');
+	    }
+	    
 		/* 
 		 ****************************
 		 * tinymce button functions *
@@ -111,8 +131,50 @@ if ( !class_exists('BA_ShortCode_Maker')){
 		}
 		
 		public function insert_shortcode_button(){
+			?>
+			<script>
+			(function() {
+
+				var fieldSelection = {
+
+					getSelection: function() {
+						var e = (this.jquery) ? this[0] : this;
+						return (
+							/* mozilla / dom 3.0 */
+							('selectionStart' in e && function() {
+								var l = e.selectionEnd - e.selectionStart;
+								return { start: e.selectionStart, end: e.selectionEnd, length: l, text: e.value.substr(e.selectionStart, l) };
+							}) ||
+							/* exploder */
+							(document.selection && function() {
+								e.focus();
+								var r = document.selection.createRange();
+								if (r === null) {
+									return { start: 0, end: e.value.length, length: 0 }
+								}
+								var re = e.createTextRange();
+								var rc = re.duplicate();
+								re.moveToBookmark(r.getBookmark());
+								rc.setEndPoint('EndToStart', re);
+								return { start: rc.text.length, end: rc.text.length + r.text.length, length: r.text.length, text: r.text };
+							}) ||
+							/* browser not supported */
+							function() { return null; }
+						)();
+					}
+				};
+
+				jQuery.each(fieldSelection, function(i) { jQuery.fn[i] = this; });
+
+			})();
+
+			
+			</script>
+			<?php 
 			echo '<!-- ShortCode UI insert_shortcode_button -->
 			<script>
+			var selected_content = "";
+			var shui_editor = "visual";
 			//insert shortcode
 			jQuery(document).ready(function() {
 		    	jQuery(".insert_shortcode").live(\'click\', function() {
@@ -139,18 +201,42 @@ if ( !class_exists('BA_ShortCode_Maker')){
 					}else{
 						shortcode = shortcode + "]";
 					}
-					tinyMCE.activeEditor.execCommand("mceInsertContent", 0, shortcode);
-					// closes Thickbox
-					tb_remove();
+					if (shui_editor == "visual"){
+						tinyMCE.activeEditor.execCommand("mceInsertContent", 0, shortcode);
+					}else{
+						edInsertContent(edCanvas, shortcode);
+					}					
+					closeSimpleBox();
 		    	});
 		    	
+		    	//imported author lock
 		    	if (jQuery("#_bascimported").val() == 1){
-					jQuery("#_basc_Author_Name").attr("disabled", true); 
-					jQuery("#_basc_Author_url").attr("disabled", true); 
+			        jQuery("#_basc_Author_Name").attr("disabled", true); 
+            	    jQuery("#_basc_Author_url").attr("disabled", true); 
 					jQuery("#_basc_Support_url").attr("disabled", true); 
 				}
-		    });
-		    function microtime(get_as_float) {  
+				
+				//quicktag
+				var shuiIdx = edButtons.length;
+				edButtons[shuiIdx] = new edButton(
+					"shui"  // id
+					,"ShortCodes UI"    // display
+					,""  // tagStart
+					,"" // tagEnd
+					,""     // access
+				);
+				var hshuiButton = $( \'<input type="button" id="shui" accesskey="2" class="ed_button" value="ShortCodes UI">\' );
+				hshuiButton.click( function() {
+					shui_editor = "html";
+					selected_content = $("#content").getSelection().text;
+					SimpleBox(null,\'admin-ajax.php?action=sh_ui_panel\',\'ShortCodes UI\');
+					//edInsertTag( edCanvas, h2Idx );
+				});
+				// This is at the end of the toolbar
+				hshuiButton.appendTo( $( \'#ed_toolbar\' ) );
+			});
+		    
+			function microtime(get_as_float) {  
      			var now = new Date().getTime() / 1000;  
         		var s = parseInt(now);  
 		        return (get_as_float) ? now : (Math.round((now - s) * 1000) / 1000) + " " + s;  
@@ -159,7 +245,7 @@ if ( !class_exists('BA_ShortCode_Maker')){
 			<style>
 			 .sc-desc{background: none repeat scroll 0 0 #F1fc5c;border-radius: 8px 8px 8px 8px;color: #777777;display: block;float: right;margin: 3px 0 10px 5px;max-width: 240px;padding: 15px;}
 			 .sc_att{width: 650px;}
-			 	.sc_container{border:1px solid #ddd;border-bottom:0;background:#f9f9f9;}
+			 	.sc_container{border:1px solid #ddd;border-bottom:0;background:#f9f9f9;margin-top: 5px;}
 			#sc_f_table label{font-size:12px;font-weight:700;width:200px;display:block;float:left;}
 			#sc_f_table input {padding:30px 10px;border-bottom:1px solid #ddd;border-top:1px solid #fff;}
 			#sc_f_table small{display:block;float:right;width:200px;color:#999;}
@@ -182,8 +268,9 @@ if ( !class_exists('BA_ShortCode_Maker')){
         title : 'ShortCodeUI',
         image : 'http://i.imgur.com/cdru8.png',
         onclick : function() {
-        	//insert shortcode
-			tb_show("ShortCode UI","admin-ajax.php?action=sh_ui_panel&height=500&width=650");
+        	//launch shortcode ui panel
+        	shui_editor = 'visual';
+        	SimpleBox(null,'admin-ajax.php?action=sh_ui_panel','ShortCodes UI');
         }
     });
 }][0]
@@ -254,13 +341,10 @@ JS;
 						
 					}
 		    	});
-		    	
+
+						    	
 		    	//select shortcode
 				$("#sc_name").change(function() {
-					if ($("#sc_name").val() == 0 ){
-						$(".sc_ui").html("");
-						return false;
-					}
 					$(".sc_status").show('fast');
 					$(".sc_ui").html('');
 					$.ajaxSetup({ cache: false });
@@ -292,8 +376,11 @@ JS;
 									});
 								}
 								if (data.content){
+									if (shui_editor == "visual"){
+										selected_content = tinyMCE.activeEditor.selection.getContent();	
+									}
 									$(".sc_ui").append('<h3>ShortCode Content</h3>');
-									$(".sc_ui").append('<div><textarea class="sc_content" style="width: 398px; height: 70px;"></textarea><br/>Enter The Content that needs to be inside the shortcode tags here</div>');
+									$(".sc_ui").append('<div><textarea class="sc_content" style="width: 398px; height: 70px;">'+selected_content+'</textarea><br/>Enter The Content that needs to be inside the shortcode tags here</div>');
 								}
 								if (data.submit){
 									$(".sc_ui").append('<div>'+data.submit + '</div>');
@@ -1043,77 +1130,75 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 	
 		//import export panel
 		public function sc_ui_import_export_page(){
-			global $wpdb;
-			?>
-				<div class="wrap">
-					<div id="icon-plugins" class="icon32"></div><h2><a href="http://en.bainternet.info" target="_blank">BaInternet</a> ShortCodes UI <?php _e('Import/Export'); ?></h2>
-						<div id="tabs">
-						<ul>
-							<li><a href="#Export">Export ShortCodes</a></li>
-							<li><a href="#Import">Import Shortcodes</a></li>
-							<li><a href="#stn">Export As Standalone Plugin</a></li>
-						</ul>
-						<div id="Export">
-							<h4><?php _e('Export'); ?></h4>
-							<p><?php _e('Select ShortCodes To Export'); ?> <small>(<?php _e('Hold CRTL to select multiple shortcode'); ?>)</small></p>
-							<?php 
-							$args = array( 'posts_per_page' => -1, 'post_type' => 'ba_sh', 'fields' =>'ids' );
-							$myshortcodes = get_posts( $args );
-							if (count($myshortcodes) > 0){
-								$myshortcodes = implode(',', $myshortcodes);
-								$ids_with_titles = $wpdb->get_results( 
-									"
-										SELECT ID, post_title 
-										FROM $wpdb->posts
-										WHERE ID IN  ({$myshortcodes})
-									"
-								);
-								if (count($ids_with_titles) > 0){
-									echo '<select id="sc_to_ex" name="sc_to_ex[]" multiple="multiple" style="height: 18em;">';
-									foreach( $ids_with_titles as $p){
-										echo '<option value="'.$p->ID.'">'.$p->post_title.'</option>';
-									}
-									echo '</select>';
-									echo '<p><input class="button-primary" type="button" name="export" value="'.__('Export ShortCodes').'" id="su_ui_export" />';
-									echo '<input type="hidden" id="sc_ui_Get_Export_code" name="sc_ui_Get_Export_code" value="'.wp_create_nonce("sc_ui_Get_Export_code").'" />';
-									echo '<div class="sc_ex_status" style="display: none;"><img src="http://i.imgur.com/l4pWs.gif" alt="loading..."/></div>';
-									echo '<div class="export_code" style="display: none"><label for="export_code">'.__('Export Code').'</label><br/>
-									<textarea id="export_code" style="width: 760px; height: 160px;"></textarea><br/>
-									<p>'.__('Copy this code to and paste it at this page in the WordPress Install you want to use this shortcodes in at the buttom box under Import Code').'</p>
-									</div>';
-									
-								}else{
-									echo '<p>No ShortCodes are avialble!</p>';
-								}
-							}else{
-								echo '<p>No ShortCodes are avialble!</p>';
-							}
-							?>
-						</div>
-						<div id="Import">
-							<h4><?php _e('Import'); ?></h4>
-							<p><?php _e('To Import ShortCodes paste the Export output in to the Import Code box bellow and click Import.'); ?></p>
-							<div style="float: right;"><input class="button-primary" type="button" name="import_demo" value="<?php _E('Install Demo ShortCodes');?>" id="su_ui_import_demo" /></div>
-							<div class="import_code"><label for="import_code"><?php _E('Import Code');?></label><br/>
-								<textarea id="import_code" style="width: 760px; height: 160px;"></textarea><br/>
-								<input type="hidden" id="sc_ui_Import_sc" name="sc_ui_Import_sc" value="<?php echo wp_create_nonce("sc_ui_Import_sc");?>" />
-								<input class="button-primary" type="button" name="import" value="<?php _E('Import ShortCodes');?>" id="su_ui_import" />
-								<div class="sc_im_status" style="display: none;"><img src="http://i.imgur.com/l4pWs.gif" alt="loading..."/></div>
-								<div class="im-results" style="display: none;"></div>
-							
-							</div>
-						</div>
-						<div id="stn">
-							<h4><?php _e('Export Shortcode as Standalone Plugin'); ?></h4>
-							<div>
-								<p><span style="color: red;font-size: 28px;"><strong><?php _e('Comming soon!')?></strong></span></p>
-								<p><?php echo __('You can Use this option to export a shortcode as a plugin and and install it in any site you want, sell it or share it at the WordPress Plugin repository, Anything YOU WANT.')?></p>
-							</div>
-						</div>	
+        	global $wpdb;
+            ?>
+            	<div class="wrap">
+                	<div id="icon-plugins" class="icon32"></div><h2><a href="http://en.bainternet.info" target="_blank">BaInternet</a> ShortCodes UI <?php _e('Import/Export'); ?></h2>
+                    	<div id="tabs">
+                        	<ul>
+                            	<li><a href="#Export">Export ShortCodes</a></li>
+                                <li><a href="#Import">Import Shortcodes</a></li>
+                                <li><a href="#stn">Export As Standalone Plugin</a></li>
+                            </ul>
+                           	<div id="Export">
+                            	<h4><?php _e('Export'); ?></h4>
+                                <p><?php _e('Select ShortCodes To Export'); ?> <small>(<?php _e('Hold CRTL to select multiple shortcode'); ?>)</small></p>
+                               	<?php 
+                                	$args = array( 'posts_per_page' => -1, 'post_type' => 'ba_sh', 'fields' =>'ids' );
+                                    $myshortcodes = get_posts( $args );
+                                    if (count($myshortcodes) > 0){
+                                    	$myshortcodes = implode(',', $myshortcodes);
+                                        $ids_with_titles = $wpdb->get_results( 
+                                        "
+                                        SELECT ID, post_title 
+                                        FROM $wpdb->posts
+                                        WHERE ID IN  ({$myshortcodes})
+                                        "
+                                        );
+                                        if (count($ids_with_titles) > 0){
+                                        	echo '<select id="sc_to_ex" name="sc_to_ex[]" multiple="multiple" style="height: 18em;">';
+                                            foreach( $ids_with_titles as $p){
+                                            	echo '<option value="'.$p->ID.'">'.$p->post_title.'</option>';
+                                            }
+                                            echo '</select>';
+                                            echo '<p><input class="button-primary" type="button" name="export" value="'.__('Export ShortCodes').'" id="su_ui_export" />';
+                                            echo '<input type="hidden" id="sc_ui_Get_Export_code" name="sc_ui_Get_Export_code" value="'.wp_create_nonce("sc_ui_Get_Export_code").'" />';
+                                            echo '<div class="sc_ex_status" style="display: none;"><img src="http://i.imgur.com/l4pWs.gif" alt="loading..."/></div>';
+                                            echo '<div class="export_code" style="display: none"><label for="export_code">'.__('Export Code').'</label><br/>
+												<textarea id="export_code" style="width: 760px; height: 160px;"></textarea><br/>
+                                                <p>'.__('Copy this code to and paste it at this page in the WordPress Install you want to use this shortcodes in at the buttom box under Import Code').'</p>
+                                                </div>';
+                                        }else{
+                                        	echo '<p>No ShortCodes are avialble!</p>';
+                                        }
+                                     }else{
+                                     	echo '<p>No ShortCodes are avialble!</p>';
+									 }
+                                 ?>
+                             </div>
+                             <div id="Import">
+                             	<h4><?php _e('Import'); ?></h4>
+                                <p><?php _e('To Import ShortCodes paste the Export output in to the Import Code box bellow and click Import.'); ?></p>
+                                <div style="float: right;"><input class="button-primary" type="button" name="import_demo" value="<?php _E('Install Demo ShortCodes');?>" id="su_ui_import_demo" /></div>
+                                <div class="import_code"><label for="import_code"><?php _E('Import Code');?></label><br/>
+                                	<textarea id="import_code" style="width: 760px; height: 160px;"></textarea><br/>
+                                	<input type="hidden" id="sc_ui_Import_sc" name="sc_ui_Import_sc" value="<?php echo wp_create_nonce("sc_ui_Import_sc");?>" />
+                                	<input class="button-primary" type="button" name="import" value="<?php _E('Import ShortCodes');?>" id="su_ui_import" />
+                                	<div class="sc_im_status" style="display: none;"><img src="http://i.imgur.com/l4pWs.gif" alt="loading..."/></div>
+                                	<div class="im-results" style="display: none;"></div>
+								</div>
+                             </div>
+                             <div id="stn">
+                             	<h4><?php _e('Export Shortcode as Standalone Plugin'); ?></h4>
+                             	<div>
+                                	<p><span style="color: red;font-size: 28px;"><strong><?php _e('Comming soon!')?></strong></span></p>
+                                    <p><?php echo __('You can Use this option to export a shortcode as a plugin and and install it in any site you want, sell it or share it at the WordPress Plugin repository, Anything YOU WANT.')?></p>
+                                </div>
+                    	</div>  
+                	</div>
 				</div>
-			</div>
-			<?php
-		}
+        	<?php
+        }
 		
 		//load import/export js code
 		public function sc_ui_import_export_scripts(){
@@ -1133,7 +1218,7 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 		public function get_shortcode_export($post_id){
 			//shortcode post row
 			$po = get_post($post_id,'ARRAY_A');
-			$p = $tmp_meta = array();
+			$p = array();
 			$fs = array('post_content','post_title','post_status','post_excerpt','comment_status','post_password','post_type');
 			foreach($fs as $key){
 				$p[$key] = $po[$key]; 	
@@ -1142,11 +1227,6 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 			$meta = get_post_custom($post_id);
 			unset($meta['_edit_last']);
 			unset($meta['_edit_lock']);
-			/*
-			foreach ($meta as $m_key => $m_val){
-				$tmp_meta[$m_key] = get_post_custom($post_id,$m_key,true);
-			}
-			*/
 			
 			//shortcode tax
 			$tax = array();
@@ -1180,29 +1260,29 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 		//import shortcode to database function 
 		function import_shortcode($sc){
 			if (in_array($sc['tag'],array_keys($this->sc_tags))){
-				return array('sc_title' => $sc['p']['post_title'], 'status' => __('ShortCode already Exists with this tag'), 'tag' => $sc['tag']);
+            	return array('sc_title' => $sc['p']['post_title'], 'status' => __('ShortCode already Exists with this tag'), 'tag' => $sc['tag']);
 			}else{
-				//insert shortcode post row
+            	//insert shortcode post row
 				$sc_id = wp_insert_post($sc['p']);
-				if (!is_wp_error($sc_id) && $sc_id > 0){
-					//insert meta
-					foreach ($sc['meta'] as $k => $v){
-						if ($k == "_bascsh_attr" || $k == "_bascsh_external"){
-							update_post_meta($sc_id,$k,unserialize($v[0]));
-						}else{
-							update_post_meta($sc_id,$k,$v[0]);
-						}
-					}
-					//set imported flag
-					update_post_meta($sc_id,'_bascimported',1);
-					//taxonomy
-					wp_set_object_terms($sc_id,(array)$sc['tax'],'bs_sh_cats');
-					return array('sc_title' => $sc['p']['post_title'], 'status' => __('Imported Successfully'), 'tag' => $sc['tag']);
+                if (!is_wp_error($sc_id) && $sc_id > 0){
+                //insert meta
+               		 foreach ($sc['meta'] as $k => $v){
+                		if ($k == "_bascsh_attr" || $k == "_bascsh_external"){
+                    		update_post_meta($sc_id,$k,unserialize($v[0]));
+                    	}else{
+                    		update_post_meta($sc_id,$k,$v[0]);
+                    	}
+                	}
+	                //set imported flag
+	                update_post_meta($sc_id,'_bascimported',1);
+	                //taxonomy
+	                wp_set_object_terms($sc_id,(array)$sc['tax'],'bs_sh_cats');
+	                return array('sc_title' => $sc['p']['post_title'], 'status' => __('Imported Successfully'), 'tag' => $sc['tag']);
 				}else{
-					return array('sc_title' => $sc['p']['post_title'], 'status' =>__('Error in Importting Shortcode'), 'tag' => $sc['tag']);
+                    return array('sc_title' => $sc['p']['post_title'], 'status' =>__('Error in Importting Shortcode'), 'tag' => $sc['tag']);
 				}
-			} 
-			
+            } 
+                        
 		}
 		
 		//ajax Import function
@@ -1256,8 +1336,6 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 			}
 			return $sc_tag;
 		}
-		
-		//import demo shortcodes
 	}//end class
 }//end if
 
