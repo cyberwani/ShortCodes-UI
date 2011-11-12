@@ -886,7 +886,7 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 					$this->sc_media[$tag]['css'] = $sc_meta['_bascsh_style'][0];
 			}
 			
-			return do_shortcode($content);
+			return apply_filters($tag,do_shortcode($content));
 		}
 		
 		//snippet shortcode handler
@@ -894,7 +894,7 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 			$sc_id = $this->sc_tags[$tag]['id'];
 			$con = ''; 
 			$con = $this->get_sc_content($sc_id);
-			return do_shortcode($con);
+			return apply_filters($tag,do_shortcode($con));
 		}
 		
 		//content shortcode handler
@@ -955,7 +955,7 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 					$this->sc_media[$tag]['css'] = $sc_meta['_bascsh_style'][0];
 			}
 			
-			return do_shortcode($content);
+			return apply_filters($tag,do_shortcode($content));
 		}
 		
 		//advanced shortcode handler
@@ -1029,7 +1029,7 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 					$this->sc_media[$tag]['css'] = $sc_meta['_bascsh_style'][0];
 			}
 			
-			return do_shortcode($return_val);
+			return apply_filters($tag,do_shortcode($return_val));
 		}
 		
 		//helper function to get shortcode content (the one from the editor)

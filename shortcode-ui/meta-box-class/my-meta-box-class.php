@@ -1044,7 +1044,7 @@ class AT_Meta_Box {
 	 */
 	public function save_field_repeater( $post_id, $field, $old, $new ) {
 		
-		foreach ($new as $n){
+		foreach ((array)$new as $n){
 			foreach ( $field['fields'] as $f ) {
 				$type = $f['type'];
 				switch($type) {
