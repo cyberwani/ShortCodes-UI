@@ -3,7 +3,7 @@
 Plugin Name: ShortCodes UI
 Plugin URI: http://en.bainternet.info
 Description: Admin UI for creating ShortCodes in WordPress removing the need for you to write any code. Still Work In Progress
-Version: 1.0
+Version: 1.2
 Author: Bainternet
 Author URI: http://en.bainternet.info
 */
@@ -62,10 +62,14 @@ if ( !class_exists('BA_ShortCode_Maker')){
 			add_action('wp_footer',array($this,'print_footer_Scripts'));
 			add_action('wp_footer',array($this,'external_print_footer_Scripts'));
 			add_action('wp_head',array($this,'external_print_head_Scripts'));
+			//use built in wp_enqueue functions
+			add_action('wp_enqueue_scripts', array($this,'external_script_enqueue'));
+			add_action('wp_print_styles', array($this,'external_style_enqueue'));
+			
+			
 			//setup scripts and styles // the_posts gets triggered before wp_head
 			add_filter('the_posts', array($this, 'conditionally_add_scripts_and_styles'));
-
-			
+						
 			//tinymce button
 			global $pagenow,$typenow; 
 			if ($isadmin && $typenow !='ba_sh' && ($pagenow=='post-new.php' OR $pagenow=='post.php')){
@@ -76,14 +80,17 @@ if ( !class_exists('BA_ShortCode_Maker')){
 				add_filter( 'mce_buttons', array($this,'Add_custom_buttons' ));
 				add_filter( 'tiny_mce_before_init', array($this,'Insert_custom_buttons' ));
 			}
+			if ($isadmin && 'ba_sh' == $typenow)
+				add_filter('post_updated_messages',array($this, 'sh_updated_messages'));
 			
 			//ajax tinymce functions
 			add_action('wp_ajax_sh_ui_panel', array($this,'load_tinymce_panel'));
 			add_action('wp_ajax_ba_sb_shortcodes', array($this,'get_shortcode_list'));
 			add_action('wp_ajax_ba_sb_shortcode', array($this,'get_shortcode_fields'));
-			
+						
 			//export import functions
-			add_filter('post_row_actions',array($this,'Export_shortcodes_Row_action'), 10, 2);
+			/* TO DO: implement a single shortcode export from row actions*/
+			//add_filter('post_row_actions',array($this,'Export_shortcodes_Row_action'), 10, 2);
 			if ($isadmin){
 				add_action('admin_menu', array($this,'sc_ui_import_export_menupage'));
 				add_action('admin_print_scripts-ba_sh_page_sc_ui_ie',array($this,'sc_ui_import_export_scripts'));
@@ -94,8 +101,7 @@ if ( !class_exists('BA_ShortCode_Maker')){
 				add_action('wp_ajax_ba_sb_get_ex_code', array($this,'sc_ui_ajax_export'));
 				add_action('wp_ajax_ba_sb_Import_sc', array($this,'sc_ui_ajax_import'));
 				
-			}
-			
+			}			
 	    }
 	    
 	    /*
@@ -597,13 +603,12 @@ JS;
 			
 			foreach ($tags as $index => $t){
 				foreach ($posts as $post) {
-					if (stripos($post->post_content, $t)) {
+					if (stripos($post->post_content, '['.$t) !== false) {
 						$this->sc_external[$t]['found'] = true; 
 						break;
 					}
 				}
 			}
-		 
 			return $posts;
 		}
 
@@ -660,7 +665,7 @@ JS;
 						
 						if (is_array($externals) && count($externals > 0)){
 							foreach ($externals as $ex){
-								$this->sc_external[$sc_tag][$ex['_bascsh_location']][] = array($ex['_bascsh_ex_f_type'] => $ex['_basc_url']);
+								$this->sc_external[$sc_tag][$ex['_bascsh_location']][] = array('type' =>$ex['_bascsh_ex_f_type'],'url' => $ex['_basc_url'], 'how' => (isset($ex['_basc_enque']))? $ex['_basc_enque']: 'tag' );
 							}
 						}
 					}
@@ -672,6 +677,7 @@ JS;
 		public function register_customs(){
 			$this->register_cpt_ba_sh();
 			$this->register_ct_bs_sh_cats();
+			require_once 'admin-class/admin_pages.php';
 		}
 		
 		//register custom taxonomy for shortcodes categories
@@ -690,14 +696,19 @@ JS;
 			    'new_item_name' => __( 'New shortcode category name' ),
 			); 
 			
-			register_taxonomy('bs_sh_cats',	array('ba_sh'),
-				array(
+			$args = array(
 			    	'hierarchical' => true,
 			    	'labels' => $labels,
 			    	'show_ui' => true,
 			    	'query_var' => true,
 			    	'rewrite' => array( 'slug' => 'bs_sh_cats' ),
-			));
+			);
+			
+			if (!$this->can_user_manage('ct')){
+	        	$args['show_ui'] = false;	
+            }
+			
+			register_taxonomy('bs_sh_cats',	array('ba_sh'),$args);
 		}
 		
 		//register shortcode post type
@@ -723,7 +734,7 @@ JS;
 				'hierarchical' => false,
 				'supports' => array( 'title', 'editor', 'custom-fields' ),
 				'public' => false,
-				'show_ui' => true,
+				'show_ui' =>  true,
 				'show_in_menu' => true,
 				'menu_icon' => 'http://i.imgur.com/cdru8.png',
 				'show_in_nav_menus' => false,
@@ -735,8 +746,50 @@ JS;
 				'rewrite' => false,
 				'capability_type' => 'post'
 			);
-
+			if (!$this->can_user_manage('cpt')){
+	        	$args['show_ui'] = false;	
+            }
 			register_post_type( 'ba_sh', $args );
+		}
+		
+		//shortcodes update messages
+		public function sh_updated_messages( $messages ) {
+			global $post, $post_ID;
+		  	$messages['ba_sh'] = array(
+			    0 => '', // Unused. Messages start at index 1.
+			    1 => sprintf( __('Shortcode updated. <a href="%s">View Shortcode</a>'), esc_url( get_permalink($post_ID) ) ),
+			    2 => __('Custom field updated.'),
+			    3 => __('Custom field deleted.'),
+			    4 => __('Shortcode updated.'),
+			    /* translators: %s: date and time of the revision */
+			    5 => isset($_GET['revision']) ? sprintf( __('Shortcode restored to revision from %s'), wp_post_revision_title( (int) $_GET['revision'], false ) ) : false,
+			    6 => sprintf( __('Shortcode published. <a href="%s">View Shortcode</a>'), esc_url( get_permalink($post_ID) ) ),
+			    7 => __('Shortcode saved.'),
+			    8 => sprintf( __('Shortcode submitted. <a target="_blank" href="%s">Preview Shortcode</a>'), esc_url( add_query_arg( 'preview', 'true', get_permalink($post_ID) ) ) ),
+			    9 => sprintf( __('Shortcode scheduled for: <strong>%1$s</strong>. <a target="_blank" href="%2$s">Preview Shortcode</a>'),
+			      // translators: Publish box date format, see http://php.net/date
+			      date_i18n( __( 'M j, Y @ G:i' ), strtotime( $post->post_date ) ), esc_url( get_permalink($post_ID) ) ),
+			    10 => sprintf( __('Shortcode draft updated. <a target="_blank" href="%s">Preview Shortcode</a>'), esc_url( add_query_arg( 'preview', 'true', get_permalink($post_ID) ) ) ),
+		 	);
+		
+			return $messages;
+		}
+				
+		//can user manage shortcode and taxonomies
+		public function can_user_manage($type){
+			//	how can manage?
+			global $current_user;
+      		get_currentuserinfo();
+			$pl_options = get_option('shui_settings',null);
+			if ($pl_options !== null){
+				if(isset($pl_options[$type])){
+					if (!current_user_can(strtolower($pl_options[$type]))){
+						return false;
+					}
+				}
+			}
+			return true;
+			
 		}
 		
 		//do shortcode metaboxes
@@ -817,7 +870,8 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 			$repeater_fields2[] = $my_meta_3->addText($prefix.'_url',array('name'=> 'External File URL'),true);
 			$repeater_fields2[] = $my_meta_3->addSelect($prefix.'sh_ex_f_type',array('script'=>'JavaScript','link'=>'CSS Stylesheet'),array('desc'=> 'Select External File Type','name'=> 'External File Type', 'std'=> array('script')),true);
 			$repeater_fields2[] = $my_meta_3->addSelect($prefix.'sh_location',array('head'=>'Before &lt;/HEAD&gt; Tag','body'=>'Before &lt;/BODY&gt; Tag'),array('desc'=> 'Use this to add external JS and CSS Files','name'=> 'Where to Include', 'std'=> array('body')),true);
-			
+			$repeater_fields2[] = $my_meta_3->addSelect($prefix.'_enque',array('enqueue'=>'Use wp_enqueue','tag'=>'include as html tag'),array('desc'=> 'Use wp_enqueue will use the built-in wp_enqueue_script() and wp_enqueue_style() functions to include the external JS and CSS Files<br/> include as a tag will simple insert a link and script tags.','name'=> 'How to Include', 'std'=> array('enqueue')),true);
+			//wp_enqueue_script
 			$my_meta_3->addRepeaterBlock($prefix.'sh_external',array('name' => 'External Files','fields' => $repeater_fields2,'inline'=>true));
 
 			$my_meta_3->Finish();
@@ -1078,13 +1132,14 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 				if (is_array($this->sc_external) && count($this->sc_external) > 0){
 					foreach ($this->sc_external as $key => $arr){
 						if (isset($arr['found']) && $arr['found'] && isset($arr['head']) ){
-							foreach ((array)$arr['head'] as $pair){
-								foreach ($pair as $type => $url)
-								if ('script' == $type){
-									echo '<script type="text/javascript" src="'.$url.'"></script>';
-								}else{
-									echo '<link href="'.$url.'" media="all" type="text/css" rel="stylesheet">';
-								}	
+							foreach ((array)$arr['head'] as $ex){
+									if ('script' == $ex['type']){
+										if ('tag' == $ex['how'])
+											echo '<script type="text/javascript" src="'.$ex['url'].'"></script>';
+									}else{
+										if ('tag' == $ex['how'])
+											echo '<link href="'.$ex['url'].'" media="all" type="text/css" rel="stylesheet">';
+									}
 							}
 						}
 					}
@@ -1098,14 +1153,69 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 				if (is_array($this->sc_external) && count($this->sc_external) > 0){
 					foreach ($this->sc_external as $key => $arr){
 						if (isset($arr['found']) && $arr['found'] && isset($arr['body']) ){
-							foreach ((array)$arr['body'] as $pair){
-								foreach ($pair as $type => $url)
-								if ('script' == $type){
-									echo '<script type="text/javascript" src="'.$url.'"></script>';
+							foreach ((array)$arr['body'] as $ex){
+								if ('script' == $ex['type']){
+									if ('tag' == $ex['how'])
+										echo '<script type="text/javascript" src="'.$ex['url'].'"></script>';
 								}else{
-									echo '<link href="'.$url.'" media="all" type="text/css" rel="stylesheet">';
-								}	
-							}
+									if ('tag' == $ex['how'])
+										echo '<link href="'.$ex['url'].'" media="all" type="text/css" rel="stylesheet">';
+								}
+							}	
+						}
+					}
+				}
+			}
+		}
+		
+		//external_script_enqueue
+		public function external_script_enqueue(){
+			if (isset($this->sc_external)){
+				if (is_array($this->sc_external) && count($this->sc_external) > 0){
+					foreach ($this->sc_external as $key => $arr){
+						if (isset($arr['found']) && $arr['found'] && isset($arr['body']) ){
+							foreach ((array)$arr['body'] as $ex){
+								if ('script' == $ex['type']){
+									if ('enqueue' == $ex['how']){
+										wp_enqueue_script($key,$ex['url'],'','',true);
+									}
+								}
+							}	
+						}elseif (isset($arr['found']) && $arr['found'] && isset($arr['head']) ){
+							foreach ((array)$arr['head'] as $ex){
+								if ('script' == $ex['type']){
+									if ('enqueue' == $ex['how']){
+										wp_enqueue_script($key,$ex['url'],'','',false);
+									}
+								}
+							}	
+						}
+					}
+				}
+			}
+		}
+		
+		//external_style_enqueue
+		public function external_style_enqueue(){
+			if (isset($this->sc_external)){
+				if (is_array($this->sc_external) && count($this->sc_external) > 0){
+					foreach ($this->sc_external as $key => $arr){
+						if (isset($arr['found']) && $arr['found'] && isset($arr['body']) ){
+							foreach ((array)$arr['body'] as $ex){
+								if ('link' == $ex['type']){
+									if ('enqueue' == $ex['how']){
+										wp_enqueue_style( $key, $ex['url']);
+									}
+								}
+							}	
+						}elseif (isset($arr['found']) && $arr['found'] && isset($arr['head']) ){
+							foreach ((array)$arr['head'] as $ex){
+								if ('link' == $ex['type']){
+									if ('enqueue' == $ex['how']){
+										wp_enqueue_style( $key, $ex['url']);
+									}
+								}
+							}	
 						}
 					}
 				}
@@ -1205,7 +1315,7 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 			wp_enqueue_script('jquery'); 
 			wp_enqueue_script('jquery-ui-core');
 			wp_enqueue_script('jquery-ui-tabs');
-			$src = plugins_url()."/shortcode-ui/";
+			$src = plugins_url()."/shortcodes-ui/";
 			wp_enqueue_script('sc_ui_im_ex', $src.'js/im_ex.js', array('jquery'),'', true);
 		}
 		
@@ -1336,6 +1446,8 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 			}
 			return $sc_tag;
 		}
+		
+		
 	}//end class
 }//end if
 
