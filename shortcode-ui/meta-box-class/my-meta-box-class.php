@@ -1209,7 +1209,7 @@ class AT_Meta_Box {
 	public function add_missed_values() {
 		
 		// Default values for meta box
-		$this->_meta_box = array_merge( array( 'context' => 'normal', 'priority' => 'high', 'pages' => array( 'post' ) ), $this->_meta_box );
+		$this->_meta_box = array_merge( array( 'context' => 'normal', 'priority' => 'high', 'pages' => array( 'post' ) ), (array)$this->_meta_box );
 
 		// Default values for fields
 		foreach ( $this->_fields as &$field ) {

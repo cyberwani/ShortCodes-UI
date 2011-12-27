@@ -3,7 +3,7 @@
 Plugin Name: ShortCodes UI
 Plugin URI: http://en.bainternet.info
 Description: Admin UI for creating ShortCodes in WordPress removing the need for you to write any code.
-Version: 1.6.1
+Version: 1.6.2
 Author: Bainternet
 Author URI: http://en.bainternet.info
 */
@@ -53,7 +53,7 @@ if ( !class_exists('BA_ShortCode_Maker')){
 			add_action('plugins_loaded',array($this,'load_shortcodes'));
 			
 			//setup scripts and styles // the_posts gets triggered before wp_head
-			if(!isadmin){
+			if(!$isadmin){
 				add_filter('the_posts', array($this, 'conditionally_add_scripts_and_styles'));
 				//add scripts and style
 				add_action('wp_footer',array($this,'print_footer_Scripts'));
@@ -68,11 +68,12 @@ if ( !class_exists('BA_ShortCode_Maker')){
 			if ($isadmin && $typenow !='ba_sh' && ($pagenow=='post-new.php' OR $pagenow=='post.php')){
 				add_action('admin_print_scripts',array($this,'register_scripts'));
 				add_action('admin_print_styles',array($this,'register_styles'));
-				add_filter('admin_footer',array($this,'insert_shortcode_button'));
-				add_filter( 'mce_buttons', array($this,'Add_custom_buttons' ));
-				add_filter( 'tiny_mce_before_init', array($this,'Insert_custom_buttons' ));
+				
+				
 			}
-			
+			add_filter( 'mce_buttons', array($this,'Add_custom_buttons' ));
+			add_filter( 'tiny_mce_before_init', array($this,'Insert_custom_buttons' ));
+			add_filter('admin_footer',array($this,'insert_shortcode_button'));
 			add_filter('post_updated_messages',array($this, 'sh_updated_messages'));
 				
 			add_filter('gettext',array($this,'custom_enter_title'));
@@ -355,7 +356,8 @@ JS;
 			<script>
 				//declare walker object
 				var walker = new Array();
-		    	//select shortcode category			
+		    	//select shortcode category	
+		    	jQuery(document).ready(function($) {		
 				$("#sc_cat").change(function() {
 					//before ajax
 					if ($("sc_cat").val() != -1) {
@@ -435,6 +437,7 @@ JS;
 					$(".sc_status").hide('3500');
 					$.ajaxSetup({ cache: true });
 					
+		    	});
 		    	});
 
 			</script>
