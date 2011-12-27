@@ -2,8 +2,8 @@
 /*
 Plugin Name: ShortCodes UI
 Plugin URI: http://en.bainternet.info
-Description: Admin UI for creating ShortCodes in WordPress removing the need for you to write any code. Still Work In Progress
-Version: 1.2
+Description: Admin UI for creating ShortCodes in WordPress removing the need for you to write any code.
+Version: 1.6.1
 Author: Bainternet
 Author URI: http://en.bainternet.info
 */
@@ -48,46 +48,44 @@ if ( !class_exists('BA_ShortCode_Maker')){
 	    	add_filter('manage_edit-ba_sh_columns', array($this,'add_new_sc_columns'));
 			add_action('manage_ba_sh_posts_custom_column', array($this, 'manage_sc_columns'), 10, 2);
 	    	
-	    	//fix translation
-		    if ($isadmin){
-				add_filter('gettext',array($this,'custom_enter_title'));
-				add_filter('admin_init',array($this,'load_meta_box'));
-			}
-			
+	    			
 			//register shortcodes
 			add_action('plugins_loaded',array($this,'load_shortcodes'));
 			
-			
-			//add scripts and style
-			add_action('wp_footer',array($this,'print_footer_Scripts'));
-			add_action('wp_footer',array($this,'external_print_footer_Scripts'));
-			add_action('wp_head',array($this,'external_print_head_Scripts'));
-			//use built in wp_enqueue functions
-			add_action('wp_enqueue_scripts', array($this,'external_script_enqueue'));
-			add_action('wp_print_styles', array($this,'external_style_enqueue'));
-			
-			
 			//setup scripts and styles // the_posts gets triggered before wp_head
-			add_filter('the_posts', array($this, 'conditionally_add_scripts_and_styles'));
-						
+			if(!isadmin){
+				add_filter('the_posts', array($this, 'conditionally_add_scripts_and_styles'));
+				//add scripts and style
+				add_action('wp_footer',array($this,'print_footer_Scripts'));
+				add_action('wp_footer',array($this,'external_print_footer_Scripts'));
+				add_action('wp_head',array($this,'external_print_head_Scripts'));
+				//use built in wp_enqueue functions
+				add_action('wp_enqueue_scripts', array($this,'external_script_enqueue'));
+				add_action('wp_print_styles', array($this,'external_style_enqueue'));
+			}
 			//tinymce button
 			global $pagenow,$typenow; 
 			if ($isadmin && $typenow !='ba_sh' && ($pagenow=='post-new.php' OR $pagenow=='post.php')){
 				add_action('admin_print_scripts',array($this,'register_scripts'));
 				add_action('admin_print_styles',array($this,'register_styles'));
-				
 				add_filter('admin_footer',array($this,'insert_shortcode_button'));
 				add_filter( 'mce_buttons', array($this,'Add_custom_buttons' ));
 				add_filter( 'tiny_mce_before_init', array($this,'Insert_custom_buttons' ));
 			}
-			if ($isadmin && 'ba_sh' == $typenow)
-				add_filter('post_updated_messages',array($this, 'sh_updated_messages'));
+			
+			add_filter('post_updated_messages',array($this, 'sh_updated_messages'));
+				
+			add_filter('gettext',array($this,'custom_enter_title'));
+			
+			add_action('init',array($this,'load_meta_box'));
+				
 			
 			//ajax tinymce functions
 			add_action('wp_ajax_sh_ui_panel', array($this,'load_tinymce_panel'));
 			add_action('wp_ajax_ba_sb_shortcodes', array($this,'get_shortcode_list'));
 			add_action('wp_ajax_ba_sb_shortcode', array($this,'get_shortcode_fields'));
-						
+
+			
 			//export import functions
 			/* TO DO: implement a single shortcode export from row actions*/
 			//add_filter('post_row_actions',array($this,'Export_shortcodes_Row_action'), 10, 2);
@@ -101,8 +99,52 @@ if ( !class_exists('BA_ShortCode_Maker')){
 				add_action('wp_ajax_ba_sb_get_ex_code', array($this,'sc_ui_ajax_export'));
 				add_action('wp_ajax_ba_sb_Import_sc', array($this,'sc_ui_ajax_import'));
 				
-			}			
+			}
+			
+			//help tabs
+			global $wp_version;
+			if ( $wp_version >= 3.3 ) {
+				add_action('load-post.php',array(&$this, 'shui_add_help_tab'));
+				add_action('load-post-new.php',array(&$this, 'shui_add_help_tab'));
+				add_action('load-edit.php',array(&$this, 'shui_add_help_tab'));
+			}
 	    }
+
+		//add help tabs with tut videos	    
+		public function shui_add_help_tab () {
+		    $screen = get_current_screen();
+		    if ( $screen->id != 'ba_sh' && $screen->id != 'edit-ba_sh' && $screen->id != 'add') {
+		    	return;
+		    }
+		    $screen->add_help_tab( array(
+			   'id'	=> 'simple_snippet',
+			   'title'	=> __('Simple Snippet'),
+			   'content'	=> '<h3>'.__('Simple Snippet').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/MKIxhq8elrU?rel=0" frameborder="0" allowfullscreen></iframe>',
+			) );
+		    
+			$screen->add_help_tab( array(
+			   'id'	=> 'one_tag',
+			   'title'	=> __('Simple One Tag'),
+			   'content'	=> '<h3>'.__('Simple One Tag').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/y-SpsT1dIJ0?rel=0" frameborder="0" allowfullscreen></iframe>',
+			) );
+			
+			$screen->add_help_tab( array(
+			   'id'	=> 'sh_w_content',
+			   'title'	=> __('Simple ShortCode with Content'),
+			   'content'	=> '<h3>'.__('Simple ShortCode with Content').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/YxGlfiP-3UA?rel=0" frameborder="0" allowfullscreen></iframe>',
+			) );
+			
+			$screen->add_help_tab( array(
+			   'id'	=> 'advanced_shortcodes',
+			   'title'	=> __('Advanced shortcodes'),
+			   'content'	=> '<h3>'.__('Advanced shortcodes').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/_CMxuF9L_yw?rel=0" frameborder="0" allowfullscreen></iframe>',
+			) );
+			$screen->add_help_tab( array(
+			   'id'	=> 'overview',
+			   'title'	=> __('ShortCodes UI Overview'),
+			   'content'	=> '<h3>'.__('ShortCodes UI Overview').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/GTnnRTTY3m4?rel=0" frameborder="0" allowfullscreen></iframe>',
+			) );
+		}
 	    
 	    /*
 	     ****************************
@@ -127,7 +169,6 @@ if ( !class_exists('BA_ShortCode_Maker')){
 		 * tinymce button functions *
 		 ****************************
 		 */
-	    
 	    	    
 		//add buttons
 		public function Add_custom_buttons( $mce_buttons ){
@@ -231,15 +272,12 @@ if ( !class_exists('BA_ShortCode_Maker')){
 					,"" // tagEnd
 					,""     // access
 				);
-				var hshuiButton = $( \'<input type="button" id="shui" accesskey="2" class="ed_button" value="ShortCodes UI">\' );
-				hshuiButton.click( function() {
-					shui_editor = "html";
-					selected_content = $("#content").getSelection().text;
-					SimpleBox(null,\'admin-ajax.php?action=sh_ui_panel\',\'ShortCodes UI\');
-					//edInsertTag( edCanvas, h2Idx );
-				});
-				// This is at the end of the toolbar
-				hshuiButton.appendTo( $( \'#ed_toolbar\' ) );
+				
+				jQuery("#qt_content_shui").live("click",function() {
+				    shui_editor = "html";
+				    selected_content = $("#content").getSelection().text;
+				    SimpleBox(null,"admin-ajax.php?action=sh_ui_panel","ShortCodes UI");
+				 }); 
 			});
 		    
 			function microtime(get_as_float) {  
@@ -526,7 +564,6 @@ JS;
 		//add columns function 
 		public function add_new_sc_columns($columns){
 			$new_columns['cb'] = '<input type="checkbox" />';
-			//$new_columns['id'] = __('ID');
 			$new_columns['title'] = _x('ShortCode Name', 'column name');
 			$new_columns['sc_tag'] = __('Shortcode Tag');
 			$new_columns['image'] = __('Preview');
@@ -535,7 +572,7 @@ JS;
 			return $new_columns;
 		}
 
-		//rader columns function 
+		//render columns function 
 		public function manage_sc_columns($column_name, $id) {
 			global $wpdb;
 			$prefix = '_basc';
@@ -705,9 +742,8 @@ JS;
 			);
 			
 			if (!$this->can_user_manage('ct')){
-	        	$args['show_ui'] = false;	
-            }
-			
+				$args['show_ui'] = false;	
+		    }
 			register_taxonomy('bs_sh_cats',	array('ba_sh'),$args);
 		}
 		
@@ -746,9 +782,9 @@ JS;
 				'rewrite' => false,
 				'capability_type' => 'post'
 			);
-			if (!$this->can_user_manage('cpt')){
-	        	$args['show_ui'] = false;	
-            }
+		   if (!$this->can_user_manage('cpt')){
+				$args['show_ui'] = false;	
+		   }
 			register_post_type( 'ba_sh', $args );
 		}
 		
@@ -779,17 +815,32 @@ JS;
 		public function can_user_manage($type){
 			//	how can manage?
 			global $current_user;
-      		get_currentuserinfo();
-			$pl_options = get_option('shui_settings',null);
-			if ($pl_options !== null){
-				if(isset($pl_options[$type])){
-					if (!current_user_can(strtolower($pl_options[$type]))){
-						return false;
-					}
-				}
+			get_currentuserinfo();
+			$user_id = intval( $current_user->ID );
+
+			if( ! $user_id ) {
+				return FALSE;
 			}
-			return true;
+			$user = new WP_User( $user_id ); // $user->roles
+			$pl_options = get_option('shui_settings',null);
+			if ($pl_options == null){
+				return true;
+			}
 			
+			$orderedRoles = array(
+				'norole' => 0,
+				'subscriber' => 1,
+				'contributor' => 2,
+				'author' => 3,
+				'editor' => 4,
+				'administrator' => 5
+			);
+			$cu = $user->roles[0];
+			$set = $orderedRoles[strtolower($pl_options[$type])];
+			if ($orderedRoles[$user->roles[0]] >= $orderedRoles[strtolower($pl_options[$type])]){
+				return true;
+			}
+			return false;			
 		}
 		
 		//do shortcode metaboxes
@@ -916,11 +967,9 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 					$args = array();
 					foreach ($shortcode_attributes as $at){
 						if (isset($attr[$at['_basc_name']])){
-							//$content = str_replace('{'.$at['_basc_name'].'}',$attr[$at['_basc_name']],$content);
 							$sc_content  = str_replace('{'.$at['_basc_name'].'}',$attr[$at['_basc_name']],$sc_content);
 							$sc_template  = str_replace('{'.$at['_basc_name'].'}',$attr[$at['_basc_name']],$sc_template);
 						}else{
-							//$content = str_replace('{'.$at['_basc_name'].'}',$at['_basc_std'],$content);
 							$sc_content  = str_replace('{'.$at['_basc_name'].'}',$at['_basc_std'],$sc_content);
 							$sc_template = str_replace('{'.$at['_basc_name'].'}',$at['_basc_std'],$sc_template);
 						}
@@ -1021,32 +1070,15 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 			$code = trim($sc_meta['_bascsh_php'][0]);
 			if ($code == '') return '';
 			
-			
-			//$sc_content = $sc_template = '';
-			
-			//if (isset($sc_meta['_bascsh_template'][0]) && $sc_meta['_bascsh_template'][0] != '' )
-				//$sc_template = $sc_meta['_bascsh_template'][0];
 				
 			$sc_content = $this->get_sc_content($sc_id);
-			
-			//if ($sc_content == '' && $sc_template == '' && $content == null) return '';
-			
+						
 			if(isset($sc_meta['_bascsh_attr'][0]) ){
 				$shortcode_attributes = unserialize($sc_meta['_bascsh_attr'][0]);
 				if (is_array($shortcode_attributes) && count($shortcode_attributes > 0)){
 					$args = array();
 					foreach ($shortcode_attributes as $at){
-						/*
-						if (isset($attr[$at['_basc_name']])){
-							$content = str_replace('{'.$at['_basc_name'].'}',$attr[$at['_basc_name']],$content);
-							$sc_content  = str_replace('{'.$at['_basc_name'].'}',$attr[$at['_basc_name']],$sc_content);
-							$sc_template  = str_replace('{'.$at['_basc_name'].'}',$attr[$at['_basc_name']],$sc_template);
-						}else{
-							$content = str_replace('{'.$at['_basc_name'].'}',$at['_basc_std'],$content);
-							$sc_content  = str_replace('{'.$at['_basc_name'].'}',$at['_basc_std'],$sc_content);
-							$sc_template = str_replace('{'.$at['_basc_name'].'}',$at['_basc_std'],$sc_template);
-						}
-						*/
+						
 						$args[$at['_basc_name']] = $at['_basc_std'];
 					}
 					extract(shortcode_atts($args, $attr));
@@ -1451,4 +1483,4 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 	}//end class
 }//end if
 
-new BA_ShortCode_Maker();
+$shortcodes_ui = new BA_ShortCode_Maker();

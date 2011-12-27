@@ -28,6 +28,11 @@ if (!class_exists('shui_AdminPage')){
      */
     private $table = false;
     
+    /**
+     * Holds page slug
+     * @var string;
+     */
+    public $slug;
         
     /**
      * Adds an input field to the current page
@@ -885,6 +890,8 @@ if (!class_exists('shui_SubPage')){
      * @param string|object $top contains the name of the parent Top-Level-Menu or a TopPage object
      * @param array|string $args contains everything needed to build the menu, if just a string it's the name of the page
      */
+  	
+  	
     public function __construct($top, $args) {
       if(is_object($top)) {
         $this->top = $top->top;
@@ -953,7 +960,13 @@ if (!class_exists('shui_SubPage')){
         $this->args = $array;
       }
       add_action('admin_menu', array($this, 'renderSubPage'));
-      add_action('admin_head', array($this, 'loadScripts'));
+      
+      
+      
+    }
+    
+    public function printslug(){
+    	echo 'slug: ' . $this->slug;
     }
     
     /**
@@ -965,7 +978,8 @@ if (!class_exists('shui_SubPage')){
         'capability' => 'edit_themes',
       );
       $this->args = array_merge($default, $this->args);
-      add_submenu_page($this->top, $this->args['page_title'], $this->args['page_title'], $this->args['capability'], $this->createSlug(), array($this, 'outputHTML'));
+      $this->slug = add_submenu_page($this->top, $this->args['page_title'], $this->args['page_title'], $this->args['capability'], $this->createSlug(), array($this, 'outputHTML'));
+      add_action('admin_print_scripts-'.$this->slug, array($this, 'loadScripts'));
     }
     
     

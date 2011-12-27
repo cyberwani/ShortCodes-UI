@@ -4,7 +4,7 @@ Donate link:http://en.bainternet.info/donations
 Tags: shortcode, shortcodes ui, shortcode maker, shortcode generator
 Requires at least: 2.9.2
 Tested up to: 3.3
-Stable tag: 1.2
+Stable tag: 1.6.1
 
 This Plugin adds an admin UI for creating shortcodes without the need to code, edit code, or even know code.
  
@@ -66,6 +66,16 @@ Simply use the <a href=\"http://wordpress.org/tags/shortcodes-ui/?forum_id=10\">
 
 6. shortcode ui panel insert to post button.
 == Changelog ==
+1.6.1 restored missing Shourcodes ui metaboxes.
+
+1.6 cleaned Code, Fixed dashboard widgets bug.
+
+1.5 Added three more tutorial videos.
+
+1.4 Added two tutorial videos to WordPress 3.3 help tabs, fixed attributes and external files JS.
+
+1.3 Fixed Quicktag button to work with the new quicktags api.
+
 1.2 Big Update, ReCoded External File inclution and added a feature to use WordPress Built-in 'wp_enquire_script()' and 'wp_enquire_style()'
 
 Added options panel to let you control how can create shortcodes by role.

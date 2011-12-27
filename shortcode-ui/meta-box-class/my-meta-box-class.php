@@ -12,7 +12,7 @@
  * modify and change small things and adding a few field types that i needed to my personal preference. 
  * The original author did a great job in writing this class, so all props goes to him.
  * 
- * @version 0.1.5
+ * @version 0.1.7
  * @copyright 2011 
  * @author Ohad Raz (email: admin@bainternet.info)
  * @link http://en.bainternet.info
@@ -74,6 +74,15 @@ class AT_Meta_Box {
 	protected $_Local_images;
 	
 	/**
+	 * SelfPath to allow themes as well as plugins.
+	 *
+	 * @var string
+	 * @access protected
+	 * $since 1.6
+	 */
+	protected $SelfPath;
+	
+	/**
 	 * Constructor
 	 *
 	 * @since 1.0
@@ -93,6 +102,20 @@ class AT_Meta_Box {
 		$this->_fields = &$this->_meta_box['fields'];
 		$this->_Local_images = (isset($meta_box['local_images'])) ? true : false;
 		$this->add_missed_values();
+		if (isset($meta_box['use_with_theme']))
+			if ($meta_box['use_with_theme'] == true){
+				$this->SelfPath = get_stylesheet_directory_uri() . '/meta-box-class';
+			}elseif($meta_box['use_with_theme'] == false){
+				$this->SelfPath = plugins_url( 'meta-box-class', plugin_basename( dirname( __FILE__ ) ) );
+			}else{
+				$this->SelfPath = $meta_box['use_with_theme'];
+			}
+		else{
+			$this->SelfPath = plugins_url( 'meta-box-class', plugin_basename( dirname( __FILE__ ) ) );
+		}
+		
+		
+			
 		
 		// Add Actions
 		add_action( 'add_meta_boxes', array( &$this, 'add' ) );
@@ -100,11 +123,13 @@ class AT_Meta_Box {
 		add_action( 'save_post', array( &$this, 'save' ) );
 		
 		// Check for special fields and add needed actions for them.
-		$this->check_field_upload();
-		$this->check_field_color();
-		$this->check_field_date();
-		$this->check_field_time();
-		
+		global $typenow;
+		if (in_array($typenow,$this->_meta_box['pages'])){
+			$this->check_field_upload();
+			$this->check_field_color();
+			$this->check_field_date();
+			$this->check_field_time();
+		}
 		// Load common js, css files
 		// Must enqueue for all pages as we need js for the media upload, too.
 		add_action( 'admin_print_styles', array( &$this, 'load_scripts_styles' ) );
@@ -120,13 +145,22 @@ class AT_Meta_Box {
 	public function load_scripts_styles() {
 		
 		// Get Plugin Path
-		$plugin_path = plugins_url( 'meta-box-class', plugin_basename( dirname( __FILE__ ) ) );
+		$plugin_path = $this->SelfPath;
 		
-		// Enqueue Meta Box Style
-		wp_enqueue_style( 'at-meta-box', $plugin_path . '/css/meta-box.css' );
 		
-		// Enqueue Meta Box Scripts
-		wp_enqueue_script( 'at-meta-box', $plugin_path . '/js/meta-box.js', array( 'jquery' ), null, true );
+		//only load styles and js when needed
+		/* 
+		 * since 1.8
+		 */
+		global $typenow;
+		if (in_array($typenow,$this->_meta_box['pages'])){
+			// Enqueue Meta Box Style
+			wp_enqueue_style( 'at-meta-box', $plugin_path . '/css/meta-box.css' );
+			
+			// Enqueue Meta Box Scripts
+			wp_enqueue_script( 'at-meta-box', $plugin_path . '/js/meta-box.js', array( 'jquery' ), null, true );
+		
+		}
 		
 	}
 	
@@ -210,7 +244,7 @@ class AT_Meta_Box {
 			$li 	 = "<li id='item_{$attachment_id}'>";
 			$li 	.= "<img src='{$attachment['url']}' alt='image_{$attachment_id}' />";
 			//$li 	.= "<a title='" . __( 'Delete this image' ) . "' class='at-delete-file' href='#' rel='{$nonce}|{$post_id}|{$id}|{$attachment_id}'>" . __( 'Delete' ) . "</a>";
-			$li 	.= "<a title='" . __( 'Delete this image' ) . "' class='at-delete-file' href='#' rel='{$nonce}|{$post_id}|{$id}|{$attachment_id}'><img src='" . plugins_url( 'meta-box-class/images/delete-16.png' , dirname( __FILE__ ) ) . "' alt='" . __( 'Delete' ) . "' /></a>";
+			$li 	.= "<a title='" . __( 'Delete this image' ) . "' class='at-delete-file' href='#' rel='{$nonce}|{$post_id}|{$id}|{$attachment_id}'><img src='" . $this->SelfPath. "/images/delete-16.png' alt='" . __( 'Delete' ) . "' /></a>";
 			$li 	.= "<input type='hidden' name='{$id}[]' value='{$attachment_id}' />";
 			$li 	.= "</li>";
 			$html .= $li;
@@ -341,7 +375,7 @@ class AT_Meta_Box {
 			// Enqueu JQuery UI, use proper version.
 			wp_enqueue_style( 'at-jquery-ui-css', 'http://ajax.googleapis.com/ajax/libs/jqueryui/' . $this->get_jqueryui_ver() . '/themes/base/jquery-ui.css' );
 			wp_enqueue_script( 'at-jquery-ui', 'https://ajax.googleapis.com/ajax/libs/jqueryui/' . $this->get_jqueryui_ver() . '/jquery-ui.min.js', array( 'jquery' ) );
-			wp_enqueue_script( 'at-timepicker', 'https://github.com/trentrichardson/jQuery-Timepicker-Addon/raw/master/jquery-ui-timepicker-addon.js', array( 'at-jquery-ui' ) );
+			wp_enqueue_script( 'at-timepicker', 'https://github.com/trentrichardson/jQuery-Timepicker-Addon/raw/master/jquery-ui-timepicker-addon.js', array( 'at-jquery-ui' ),false,true );
 		
 		}
 		
@@ -398,14 +432,14 @@ class AT_Meta_Box {
 	public function show_field_repeater( $field, $meta ) {
 		global $post;	
 		// Get Plugin Path
-		$plugin_path = plugins_url( 'meta-box-class', plugin_basename( dirname( __FILE__ ) ) );
+		$plugin_path = $this->SelfPath;
 		$this->show_field_begin( $field, $meta );
 		echo "<div class='at-repeat' id='{$field['id']}'>";
 		
 		$c = 0;
 		$meta = get_post_meta($post->ID,$field['id'],true);
 		
-    	if (count($meta) > 0 && is_array($meta)){
+    	if (count($meta) > 0 && is_array($meta) ){
    			foreach ($meta as $me){
    				//for labling toggles
    				$mmm =  $me[$field['fields'][0]['id']];
@@ -696,7 +730,15 @@ class AT_Meta_Box {
 	 */
 	public function show_field_wysiwyg( $field, $meta ) {
 		$this->show_field_begin( $field, $meta );
+		// Add TinyMCE script for WP version < 3.3
+		global $wp_version;
+
+		if ( version_compare( $wp_version, '3.2.1' ) < 1 ) {
 			echo "<textarea class='at-wysiwyg theEditor large-text' name='{$field['id']}' id='{$field['id']}' cols='60' rows='10'>{$meta}</textarea>";
+		}else{
+			// Use new wp_editor() since WP 3.3
+			wp_editor( $meta, $field['id'], array( 'editor_class' => 'at-wysiwyg' ) );
+		}
 		$this->show_field_end( $field, $meta );
 	}
 	
@@ -783,7 +825,7 @@ class AT_Meta_Box {
 
 			echo "<li id='item_{$image}'>";
 				echo "<img src='{$src}' alt='image_{$image}' />";
-				echo "<a title='" . __( 'Delete this image' ) . "' class='at-delete-file' href='#' rel='{$nonce_delete}|{$post->ID}|{$field['id']}|{$image}'><img src='" . plugins_url( 'meta-box-class/images/delete-16.png' , dirname( __FILE__ ) ) . "' alt='" . __( 'Delete' ) . "' width='16' height='16' /></a>";
+				echo "<a title='" . __( 'Delete this image' ) . "' class='at-delete-file' href='#' rel='{$nonce_delete}|{$post->ID}|{$field['id']}|{$image}'><img src='" . $this->SelfPath ."/images/delete-16.png' alt='" . __( 'Delete' ) . "' width='16' height='16' /></a>";
 				//echo "<a title='" . __( 'Delete this image' ) . "' class='at-delete-file' href='#' rel='{$nonce_delete}|{$post->ID}|{$field['id']}|{$image}'>" . __( 'Delete' ) . "</a>";
 				echo "<input type='hidden' name='{$field['id']}[]' value='{$image}' />";
 			echo "</li>";
@@ -1043,7 +1085,7 @@ class AT_Meta_Box {
 	 * @access public 
 	 */
 	public function save_field_repeater( $post_id, $field, $old, $new ) {
-		if (is_array($new)){
+		if (is_array($new) && count($new) > 0){
 			foreach ($new as $n){
 				foreach ( $field['fields'] as $f ) {
 					$type = $f['type'];
@@ -1058,7 +1100,8 @@ class AT_Meta_Box {
 					       	break;
 					}
 				}
-				$temp[] = $n;
+				if(!$this->is_array_empty($n))
+					$temp[] = $n;
 			}
 			if (isset($temp) && count($temp) > 0 && !$this->is_array_empty($temp)){
 				update_post_meta($post_id,$field['id'],$temp);
@@ -1708,11 +1751,11 @@ class AT_Meta_Box {
 		foreach ($array as $a){
 			if (is_array($a)){
 				foreach ($a as $sub_a){
-					if (!empty($sub_a))
+					if (!empty($sub_a) && $sub_a != '')
 						return false;
 				}
 			}else{
-				if (!empty($a))
+				if (!empty($a) && $a != '')
 					return false;
 			}
 		}
