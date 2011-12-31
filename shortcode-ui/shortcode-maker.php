@@ -3,7 +3,7 @@
 Plugin Name: ShortCodes UI
 Plugin URI: http://en.bainternet.info
 Description: Admin UI for creating ShortCodes in WordPress removing the need for you to write any code.
-Version: 1.6.2
+Version: 1.6.3
 Author: Bainternet
 Author URI: http://en.bainternet.info
 */
@@ -65,15 +65,18 @@ if ( !class_exists('BA_ShortCode_Maker')){
 			}
 			//tinymce button
 			global $pagenow,$typenow; 
-			if ($isadmin && $typenow !='ba_sh' && ($pagenow=='post-new.php' OR $pagenow=='post.php')){
+			if ($isadmin && $typenow !='ba_sh' && ($pagenow=='post-new.php' || $pagenow=='post.php')){
 				add_action('admin_print_scripts',array($this,'register_scripts'));
 				add_action('admin_print_styles',array($this,'register_styles'));
 				
 				
 			}
-			add_filter( 'mce_buttons', array($this,'Add_custom_buttons' ));
-			add_filter( 'tiny_mce_before_init', array($this,'Insert_custom_buttons' ));
-			add_filter('admin_footer',array($this,'insert_shortcode_button'));
+			if($isadmin && ('post-new.php' == $pagenow || 'post.php' == $pagenow)){
+				add_filter( 'mce_buttons', array($this,'Add_custom_buttons' ));
+				add_filter( 'tiny_mce_before_init', array($this,'Insert_custom_buttons' ));
+				add_filter('admin_footer',array($this,'insert_shortcode_button'));
+			}
+			
 			add_filter('post_updated_messages',array($this, 'sh_updated_messages'));
 				
 			add_filter('gettext',array($this,'custom_enter_title'));
@@ -149,7 +152,7 @@ if ( !class_exists('BA_ShortCode_Maker')){
 	    
 	    /*
 	     ****************************
-	     * 		  SimpleBox			*
+	     * 		  SimpleBox	*
 	     ****************************
 	     */
 	    
@@ -243,7 +246,7 @@ if ( !class_exists('BA_ShortCode_Maker')){
 					    var con = "";
 					    con = jQuery(".sc_content").val();
 					}
-					if (walker.content && $.trim(con).length){
+					if (walker.content && jQuery.trim(con).length){
 						shortcode = shortcode + "]" + jQuery(".sc_content").val();
 						shortcode = shortcode + "[/"+ walker.tag + "]"; 
 					}else{
@@ -276,7 +279,7 @@ if ( !class_exists('BA_ShortCode_Maker')){
 				
 				jQuery("#qt_content_shui").live("click",function() {
 				    shui_editor = "html";
-				    selected_content = $("#content").getSelection().text;
+				    selected_content = jQuery("#content").getSelection().text;
 				    SimpleBox(null,"admin-ajax.php?action=sh_ui_panel","ShortCodes UI");
 				 }); 
 			});
@@ -357,15 +360,15 @@ JS;
 				//declare walker object
 				var walker = new Array();
 		    	//select shortcode category	
-		    	jQuery(document).ready(function($) {		
-				$("#sc_cat").change(function() {
+		    	jQuery(document).ready(function() {		
+				jQuery("#sc_cat").change(function() {
 					//before ajax
-					if ($("sc_cat").val() != -1) {
-						$(".sc_status").show('fast');
-						$(".sc_ui").html('');
-						$.ajaxSetup({ cache: false });
-						$.getJSON(ajaxurl,
-						{  	cat: $("#sc_cat").val(),
+					if (jQuery("sc_cat").val() != -1) {
+						jQuery(".sc_status").show('fast');
+						jQuery(".sc_ui").html('');
+						jQuery.ajaxSetup({ cache: false });
+						jQuery.getJSON(ajaxurl,
+						{  	cat: jQuery("#sc_cat").val(),
 							rnd: microtime(false), //hack to avoid request cache
 						    action: "ba_sb_shortcodes",
 						    seq: "<?php echo wp_create_nonce("list_sh_by_cat");?>"
@@ -374,29 +377,29 @@ JS;
 							if (data.errors){
 								alert('Error in getting shortcode list! :(');						
 							}else{
-								$("#sc_name >option").remove();
-								var myCombo= $('#sc_name');
+								jQuery("#sc_name >option").remove();
+								var myCombo= jQuery('#sc_name');
 	
-								$.each(data.items, function(i,item){
-									myCombo.append($('<option> </option>').val(item.id).html(item.title));
+								jQuery.each(data.items, function(i,item){
+									myCombo.append(jQuery('<option> </option>').val(item.id).html(item.title));
 								});
 							}
 						});
-						$(".sc_status").hide('3500');
-						$.ajaxSetup({ cache: true });
+						jQuery(".sc_status").hide('3500');
+						jQuery.ajaxSetup({ cache: true });
 						
 					}
 		    	});
 
 						    	
 		    	//select shortcode
-				$("#sc_name").change(function() {
-					$(".sc_status").show('fast');
-					$(".sc_ui").html('');
-					$.ajaxSetup({ cache: false });
+				jQuery("#sc_name").change(function() {
+					jQuery(".sc_status").show('fast');
+					jQuery(".sc_ui").html('');
+					jQuery.ajaxSetup({ cache: false });
 					
-					$.getJSON(ajaxurl,
-					{  	sc_id: $("#sc_name").val(),
+					jQuery.getJSON(ajaxurl,
+					{  	sc_id: jQuery("#sc_name").val(),
 						rnd: microtime(false), //hack to avoid request cache
 					    action: "ba_sb_shortcode",
 					    seq: "<?php echo wp_create_nonce("get_shortcode_fields");?>"
@@ -404,38 +407,38 @@ JS;
 					function(data) {
 						if (data){
 							walker = data;
-							$(".sc_ui").append('<h2>'+ $('#sc_name>option:selected').text() +' Shortcode</h2>');
+							jQuery(".sc_ui").append('<h2>'+ jQuery('#sc_name>option:selected').text() +' Shortcode</h2>');
 							if (data.errors){
 								alert('Error in getting shortcode! ):(');						
 							}else{
 								if(data.preview){
-									$(".sc_ui").append('<div>Preview <br/><img src="' + data.preview + '"/></div>');
+									jQuery(".sc_ui").append('<div>Preview <br/><img src="' + data.preview + '"/></div>');
 								}
 								if (data.fields){
-									$(".sc_ui").append('<h3>ShortCode Attributes</h3>');								
-									$(".sc_ui").append($('<table> </table>').attr('id','sc_f_table').attr('width' ,'100%'));
+									jQuery(".sc_ui").append('<h3>ShortCode Attributes</h3>');								
+									jQuery(".sc_ui").append(jQuery('<table> </table>').attr('id','sc_f_table').attr('width' ,'100%'));
 									if (data.headers){
-										$("#sc_f_table").append(data.headers);	
+										jQuery("#sc_f_table").append(data.headers);	
 									}
-									$.each(data.fields, function(i,item){
-										$(".sc_ui").append(item.html +'<hr/>');
+									jQuery.each(data.fields, function(i,item){
+										jQuery(".sc_ui").append(item.html +'<hr/>');
 									});
 								}
 								if (data.content){
 									if (shui_editor == "visual"){
 										selected_content = tinyMCE.activeEditor.selection.getContent();	
 									}
-									$(".sc_ui").append('<h3>ShortCode Content</h3>');
-									$(".sc_ui").append('<div><textarea class="sc_content" style="width: 398px; height: 70px;">'+selected_content+'</textarea><br/>Enter The Content that needs to be inside the shortcode tags here</div>');
+									jQuery(".sc_ui").append('<h3>ShortCode Content</h3>');
+									jQuery(".sc_ui").append('<div><textarea class="sc_content" style="width: 398px; height: 70px;">'+selected_content+'</textarea><br/>Enter The Content that needs to be inside the shortcode tags here</div>');
 								}
 								if (data.submit){
-									$(".sc_ui").append('<div>'+data.submit + '</div>');
+									jQuery(".sc_ui").append('<div>'+ data.submit + '</div>');
 								}
 							}
 						}
 					});
-					$(".sc_status").hide('3500');
-					$.ajaxSetup({ cache: true });
+					jQuery(".sc_status").hide('3500');
+					jQuery.ajaxSetup({ cache: true });
 					
 		    	});
 		    	});
