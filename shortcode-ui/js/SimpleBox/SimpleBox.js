@@ -72,7 +72,7 @@ function SimpleBox(insertContent, ajaxContentUrl,BoxTitle){
 		}
 		
 		// move the SimpleBox to the current window top + 100px
-		$('#SimpleBox').css('top', $(window).scrollTop() + 100 + 'px');
+		$('#SimpleBox').css('top', '100px');
 		$('#SimpleBox').css('marginLeft', '-' + $('#SimpleBox').width() / 2 + 'px');
 		$('#SimpleBox-shadow').css('height', $(document).height()+'px');
 		

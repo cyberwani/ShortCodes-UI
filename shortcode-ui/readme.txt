@@ -1,10 +1,10 @@
 === ShortCodes UI ===
 Contributors: bainternet 
 Donate link:http://en.bainternet.info/donations
-Tags: shortcode, shortcodes ui, shortcode maker, shortcode generator
+Tags: shortcode, shortcodes ui, shortcode maker, shortcode generator, shortcodes, snippet, snippet manager, snippet ui, editor templates
 Requires at least: 2.9.2
 Tested up to: 3.3
-Stable tag: 1.6.3
+Stable tag: 1.7.1
 
 This Plugin adds an admin UI for creating shortcodes without the need to code, edit code, or even know code.
  
@@ -23,6 +23,9 @@ This Plugin adds an admin UI for creating shortcodes without the need to code, e
 *	Works with all posts types (post,page,custom).
 *	Each shortcode Can be used as a Template Tag.
 *	Each shortcode has its own filter hook.
+*	syntax highlighted code editor (NEW).
+*	Render the shortcode into editor (NEW).
+* 	Built in tutorial Videos (NEW).
 *	Export as standalone plugin (SOON).
 
 any feedback or suggestions are welcome.
@@ -66,6 +69,19 @@ Simply use the <a href=\"http://wordpress.org/tags/shortcodes-ui/?forum_id=10\">
 
 6. shortcode ui panel insert to post button.
 == Changelog ==
+1.7.1 Fixed simplebox js to fixed top 100px for editors other then main content editor.
+
+1.7 Added syntax highlighted code editor to shortcode UI code (css, Javascript, php) editors.
+
+Added a new option to render the shortcode into editor instead of just inserting the shortcode tag.
+
+added an AutoP fix options.
+
+added a new feature tut video.
+
+updated metabox class.
+
+
 1.6.3 Edbuttons bug fixed (js now only included on edit pages).
 
 fixed html editor button ajax function.

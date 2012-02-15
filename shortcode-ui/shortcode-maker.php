@@ -3,7 +3,7 @@
 Plugin Name: ShortCodes UI
 Plugin URI: http://en.bainternet.info
 Description: Admin UI for creating ShortCodes in WordPress removing the need for you to write any code.
-Version: 1.6.3
+Version: 1.7.1
 Author: Bainternet
 Author URI: http://en.bainternet.info
 */
@@ -43,6 +43,9 @@ if ( !class_exists('BA_ShortCode_Maker')){
 	    	$isadmin = is_admin();
 	    	//register shortcode type
 	    	add_action( 'init', array($this,'register_customs') );
+
+	    	//autoP fix
+	    	add_filter('after_theme_setup',array($this,'autop_fix'));
 	    	
 	    	//manage columns
 	    	add_filter('manage_edit-ba_sh_columns', array($this,'add_new_sc_columns'));
@@ -88,6 +91,8 @@ if ( !class_exists('BA_ShortCode_Maker')){
 			add_action('wp_ajax_sh_ui_panel', array($this,'load_tinymce_panel'));
 			add_action('wp_ajax_ba_sb_shortcodes', array($this,'get_shortcode_list'));
 			add_action('wp_ajax_ba_sb_shortcode', array($this,'get_shortcode_fields'));
+			add_action('wp_ajax_ba_sb_rander', array($this,'ba_sb_rander'));
+			
 
 			
 			//export import functions
@@ -123,30 +128,35 @@ if ( !class_exists('BA_ShortCode_Maker')){
 		    $screen->add_help_tab( array(
 			   'id'	=> 'simple_snippet',
 			   'title'	=> __('Simple Snippet'),
-			   'content'	=> '<h3>'.__('Simple Snippet').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/MKIxhq8elrU?rel=0" frameborder="0" allowfullscreen></iframe>',
+			   'content'	=> '<h3>'.__('Simple Snippet').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/MKIxhq8elrU?rel=0&showinfo=0&controls=0&autohide=1" frameborder="0" allowfullscreen></iframe>',
 			) );
 		    
 			$screen->add_help_tab( array(
 			   'id'	=> 'one_tag',
 			   'title'	=> __('Simple One Tag'),
-			   'content'	=> '<h3>'.__('Simple One Tag').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/y-SpsT1dIJ0?rel=0" frameborder="0" allowfullscreen></iframe>',
+			   'content'	=> '<h3>'.__('Simple One Tag').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/y-SpsT1dIJ0?rel=0" frameborder="0&showinfo=0&controls=0&autohide=1" allowfullscreen></iframe>',
 			) );
 			
 			$screen->add_help_tab( array(
 			   'id'	=> 'sh_w_content',
 			   'title'	=> __('Simple ShortCode with Content'),
-			   'content'	=> '<h3>'.__('Simple ShortCode with Content').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/YxGlfiP-3UA?rel=0" frameborder="0" allowfullscreen></iframe>',
+			   'content'	=> '<h3>'.__('Simple ShortCode with Content').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/YxGlfiP-3UA?rel=0&showinfo=0&controls=0&autohide=1" frameborder="0" allowfullscreen></iframe>',
 			) );
 			
 			$screen->add_help_tab( array(
 			   'id'	=> 'advanced_shortcodes',
 			   'title'	=> __('Advanced shortcodes'),
-			   'content'	=> '<h3>'.__('Advanced shortcodes').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/_CMxuF9L_yw?rel=0" frameborder="0" allowfullscreen></iframe>',
+			   'content'	=> '<h3>'.__('Advanced shortcodes').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/_CMxuF9L_yw?rel=0&showinfo=0&controls=0&autohide=1" frameborder="0" allowfullscreen></iframe>',
 			) );
 			$screen->add_help_tab( array(
 			   'id'	=> 'overview',
 			   'title'	=> __('ShortCodes UI Overview'),
-			   'content'	=> '<h3>'.__('ShortCodes UI Overview').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/GTnnRTTY3m4?rel=0" frameborder="0" allowfullscreen></iframe>',
+			   'content'	=> '<h3>'.__('ShortCodes UI Overview').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/GTnnRTTY3m4?rel=0&showinfo=0&controls=0&autohide=1" frameborder="0" allowfullscreen></iframe>',
+			) );
+			$screen->add_help_tab( array(
+			   'id'	=> 'new_fet_1_7',
+			   'title'	=> __('New Features V1.7'),
+			   'content'	=> '<h3>'.__('New Features V1.7').'</h3><iframe width="640" height="480" src="http://www.youtube.com/embed/MmOeS-ZKeJc?rel=0&showinfo=0&controls=0&autohide=1" frameborder="0" allowfullscreen></iframe>',
 			) );
 		}
 	    
@@ -218,8 +228,6 @@ if ( !class_exists('BA_ShortCode_Maker')){
 				jQuery.each(fieldSelection, function(i) { jQuery.fn[i] = this; });
 
 			})();
-
-			
 			</script>
 			<?php 
 			echo '<!-- ShortCode UI insert_shortcode_button -->
@@ -282,6 +290,58 @@ if ( !class_exists('BA_ShortCode_Maker')){
 				    selected_content = jQuery("#content").getSelection().text;
 				    SimpleBox(null,"admin-ajax.php?action=sh_ui_panel","ShortCodes UI");
 				 }); 
+				
+				//render snippet
+				jQuery(".render_shortcode").live("click", function() {
+					var shortcode = "";
+					var attr_val = "";
+		    		shortcode = "[" + walker.tag;
+		    		if (walker.fields){
+			    		jQuery.each(walker.fields, function(i,item){
+			    			attr_val = "";
+			    			attr_val = jQuery("#" + item.name).val();
+			    			//if ( attr_val != "" && attr_val.lenght > 0){
+			    				shortcode = shortcode + " " + item.name + "=\"" + attr_val + "\"";
+			    			//}
+						});
+					}
+					
+					if (walker.content){
+					    var con = "";
+					    con = jQuery(".sc_content").val();
+					}
+					if (walker.content && jQuery.trim(con).length){
+						shortcode = shortcode + "]" + jQuery(".sc_content").val();
+						shortcode = shortcode + "[/"+ walker.tag + "]"; 
+					}else{
+						shortcode = shortcode + "]";
+					}
+					jQuery(".sc_status").show("fast");
+					jQuery.ajaxSetup({ cache: false });
+					
+					jQuery.getJSON(ajaxurl,
+					{  	sc_to_rander: shortcode,
+						rnd: microtime(false), //hack to avoid request cache
+					    action: "ba_sb_rander",
+					    seq: "'.wp_create_nonce("get_shortcode_rander").'"
+					},
+					function(data) {
+						jQuery.ajaxSetup({ cache: true });
+						if (data){
+							if (data.code){
+								jQuery(".sc_status").hide("3500");
+								if (shui_editor == "visual"){
+									tinyMCE.activeEditor.execCommand("mceInsertContent", 0, data.code);
+								}else{
+									edInsertContent(edCanvas, data.code);
+								}
+								closeSimpleBox();
+							}else{
+								alert("Something Went Wrong");
+							}
+						}
+					});
+				});
 			});
 		    
 			function microtime(get_as_float) {  
@@ -291,19 +351,19 @@ if ( !class_exists('BA_ShortCode_Maker')){
     		}  
 			</script>
 			<style>
-			 .sc-desc{background: none repeat scroll 0 0 #F1fc5c;border-radius: 8px 8px 8px 8px;color: #777777;display: block;float: right;margin: 3px 0 10px 5px;max-width: 240px;padding: 15px;}
-			 .sc_att{width: 650px;}
+				.sc-desc{background: none repeat scroll 0 0 #F1fc5c;border-radius: 8px 8px 8px 8px;color: #777777;display: block;float: right;margin: 3px 0 10px 5px;max-width: 240px;padding: 15px;}
+				.sc_att{width: 650px;}
 			 	.sc_container{border:1px solid #ddd;border-bottom:0;background:#f9f9f9;margin-top: 5px;}
-			#sc_f_table label{font-size:12px;font-weight:700;width:200px;display:block;float:left;}
-			#sc_f_table input {padding:30px 10px;border-bottom:1px solid #ddd;border-top:1px solid #fff;}
-			#sc_f_table small{display:block;float:right;width:200px;color:#999;}
-			#sc_f_table input[type="text"], #sc_f_table select{width:280px;font-size:12px;padding:4px;	color:#333;line-height:1em;background:#f3f3f3;}
-			#sc_f_table input:focus, .#sc_f_table textarea:focus{background:#fff;}
-			#sc_f_table textarea{width:280px;height:175px;font-size:12px;padding:4px;color:#333;line-height:1.5em;background:#f3f3f3;}
-			#sc_f_table h3 {cursor:pointer;font-size:1em;text-transform: uppercase;margin:0;font-weight:bold;color:#232323;float:left;width:80%;padding:14px 4px;}
-			#sc_f_table th, #sc_f_table td{border:1px solid #bbb;padding:10px;text-align:center;}
-			#sc_f_table th, .#sc_f_table td.feature{border-color:#888;}
-			@import "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/themes/cupertino/jquery-ui.css";
+				#sc_f_table label{font-size:12px;font-weight:700;width:200px;display:block;float:left;}
+				#sc_f_table input {padding:30px 10px;border-bottom:1px solid #ddd;border-top:1px solid #fff;}
+				#sc_f_table small{display:block;float:right;width:200px;color:#999;}
+				#sc_f_table input[type="text"], #sc_f_table select{width:280px;font-size:12px;padding:4px;	color:#333;line-height:1em;background:#f3f3f3;}
+				#sc_f_table input:focus, .#sc_f_table textarea:focus{background:#fff;}
+				#sc_f_table textarea{width:280px;height:175px;font-size:12px;padding:4px;color:#333;line-height:1.5em;background:#f3f3f3;}
+				#sc_f_table h3 {cursor:pointer;font-size:1em;text-transform: uppercase;margin:0;font-weight:bold;color:#232323;float:left;width:80%;padding:14px 4px;}
+				#sc_f_table th, #sc_f_table td{border:1px solid #bbb;padding:10px;text-align:center;}
+				#sc_f_table th, .#sc_f_table td.feature{border-color:#888;}
+				@import "http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/themes/cupertino/jquery-ui.css";
 			</style>';
 		}
 		
@@ -545,11 +605,19 @@ JS;
 			//content field
 			if (in_array($sc_type,array('content','advanced')))
 				$re['content'] = true;
+			elseif ('snippet' == $sc_type) {
+				$re['snip_insert'] = true;
+			}
+				
 			
 			$re['submit'] = '<br/><br/><input type="submit" value="Insert Shortcode" id="insert_sc" class="button-primary insert_shortcode">';
+			if (isset($re['snip_insert']) && $re['snip_insert']){
+				$re['submit'] .= '<input type="submit" value="Render in to editor" id="render_sc" class="button-primary render_shortcode">';
+			}
 			
 			//shortcode Tag
 			$re['tag'] = $sc_meta[$prefix.'sh_tag'];
+
 			
 			echo json_encode($re);
 			die();
@@ -905,9 +973,26 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 			$repeater_fields[] = $my_meta_2->addTextarea($prefix.'_desc',array('name'=> 'Attribute Description','desc' => 'Enter a short description of this attribute field' ),true);
 			
 			$my_meta_2->addRepeaterBlock($prefix.'sh_attr',array('name' => 'ShortCode Attributes','fields' => $repeater_fields,'inline'=>true));
-			$my_meta_2->addTextarea($prefix.'sh_style',array('name'=> 'CSS Style','desc' => 'If your Shortcode have stylesheet classes defined, you can add style sheet definitions here. <br/>This will be output in the page footer. Also leave out opening and ending &lt;style&gt;&lt;/style&gt; tags'));
-			$my_meta_2->addTextarea($prefix.'sh_js',array('name'=> 'JavaScipt','desc' => 'Must Be a valid JavaScript Code in order for it to Work.<br/>This will be output in the page footer. Also leave out opening and ending &lt;script&gt;&lt;/script&gt; tags'));
-			$my_meta_2->addTextarea($prefix.'sh_php',array('name'=> 'PHP Code','desc' => 'Must Be a valid PHP Code in order for it to Work, Also leave out opening and ending &lt;?php ?&gt; tags'));
+			$theme = get_option('shui_settings');
+			if (isset($theme['code_editor_theme'])){
+				switch ($theme['code_editor_theme']) {
+					case 0:
+						$theme = "default";
+						break;
+					case 1:
+						$theme = "light";
+						break;
+					case 2:
+						$theme = "dark";
+						break;
+					default:
+						$theme = "default";
+						break;
+				}
+			}
+			$my_meta_2->addCode($prefix.'sh_style',array('theme' => $theme, 'syntax'=> 'css','name'=> 'CSS Style','desc' => 'If your Shortcode have stylesheet classes defined, you can add style sheet definitions here. <br/>This will be output in the page footer. Also leave out opening and ending &lt;style&gt;&lt;/style&gt; tags'));
+			$my_meta_2->addCode($prefix.'sh_js',array('theme' => $theme,'syntax'=> 'javascript', 'name'=> 'JavaScipt','desc' => 'Must Be a valid JavaScript Code in order for it to Work.<br/>This will be output in the page footer. Also leave out opening and ending &lt;script&gt;&lt;/script&gt; tags'));
+			$my_meta_2->addCode($prefix.'sh_php',array('theme' => $theme,'syntax'=> 'php','name'=> 'PHP Code','desc' => 'Must Be a valid PHP Code in order for it to Work, Also leave out opening and ending &lt;?php ?&gt; tags'));
 			$my_meta_2->addRadio($prefix.'php_type',array('echo'=>'my code uses PHP echo','return'=>'my code uses PHP return'),array('name'=> 'What does this code do?', 'std'=> array('echo')));
 			
 			
@@ -1483,6 +1568,47 @@ if (jQuery(\'input[name="_bascsh_preview_image"]\').val() != \'\'){
 				update_post_meta($sc_id,'_bascsh_tag',$sc_tag);
 			}
 			return $sc_tag;
+		}
+
+		//autoP Fix
+		public function autop_fix(){
+			$pl_options = get_option('shui_settings',null);
+			if ($pl_options == null || !isset($pl_options['autop'])){
+				return;
+			}
+			switch ($pl_options['autop']) {
+				case 'remove':
+					remove_filter( 'the_content', 'wpautop' );
+					break;
+				case 'prospond':
+					remove_filter( 'the_content', 'wpautop' );
+					add_filter( 'the_content', 'wpautop' , 12);
+					break;
+				default:
+					break;
+			}
+
+		}
+
+		/**
+		 * Rednder snippent in to editor
+		 * 
+		 * @since 1.6.4
+		 * @access public
+		 * @author Ohad Raz
+		 * 
+		 */ 
+		public function ba_sb_rander(){
+			check_ajax_referer( 'get_shortcode_rander', 'seq' );
+			if (isset($_GET['sc_to_rander'])){
+				$re['code'] = do_shortcode($_GET['sc_to_rander']);
+				echo json_encode($re);
+				die();
+			}else{
+				$re['error'] = true;
+				echo json_encode($re);
+				die();
+			}
 		}
 		
 		

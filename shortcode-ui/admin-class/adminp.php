@@ -830,9 +830,9 @@ if (!class_exists('shui_AdminPage')){
       wp_print_scripts('jquery');
       wp_print_scripts('jquery-ui-core');
       wp_print_scripts('jquery-ui-tabs');
-      wp_print_scripts('tiny_mce');
+      //wp_print_scripts('tiny_mce');
       wp_print_scripts('editor');
-      wp_print_scripts('editor-functions');
+      //wp_print_scripts('editor-functions');
       add_thickbox();
       wp_admin_css();
       wp_enqueue_script('utils');

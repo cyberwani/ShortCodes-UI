@@ -12,7 +12,7 @@
  * modify and change small things and adding a few field types that i needed to my personal preference. 
  * The original author did a great job in writing this class, so all props goes to him.
  * 
- * @version 0.1.7
+ * @version 2.1
  * @copyright 2011 
  * @author Ohad Raz (email: admin@bainternet.info)
  * @link http://en.bainternet.info
@@ -123,13 +123,12 @@ class AT_Meta_Box {
 		add_action( 'save_post', array( &$this, 'save' ) );
 		
 		// Check for special fields and add needed actions for them.
-		global $typenow;
-		if (in_array($typenow,$this->_meta_box['pages'])){
-			$this->check_field_upload();
-			$this->check_field_color();
-			$this->check_field_date();
-			$this->check_field_time();
-		}
+		$this->check_field_upload();
+		$this->check_field_color();
+		$this->check_field_date();
+		$this->check_field_time();
+		$this->check_field_code();
+		
 		// Load common js, css files
 		// Must enqueue for all pages as we need js for the media upload, too.
 		add_action( 'admin_print_styles', array( &$this, 'load_scripts_styles' ) );
@@ -193,7 +192,8 @@ class AT_Meta_Box {
 		// Delete all attachments when delete custom post type.
 		add_action( 'wp_ajax_at_delete_file', 		array( &$this, 'delete_file' ) );
 		add_action( 'wp_ajax_at_reorder_images', 	array( &$this, 'reorder_images' ) );
-		
+		// Delete file via Ajax
+		add_action( 'wp_ajax_at_delete_mupload', array( $this, 'wp_ajax_delete_image' ) );
 	}
 	
 	/**
@@ -301,6 +301,45 @@ class AT_Meta_Box {
 		die( '0' );
 	
 	}
+	/**
+	* Ajax callback for deleting files.
+	* Modified from a function used by "Verve Meta Boxes" plugin (http://goo.gl/LzYSq)
+	* @since 1.7
+	* @access public
+	*/
+	public function wp_ajax_delete_image() {
+		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0;
+		$field_id = isset( $_GET['field_id'] ) ? $_GET['field_id'] : 0;
+		$attachment_id = isset( $_GET['attachment_id'] ) ? intval( $_GET['attachment_id'] ) : 0;
+		$ok = false;
+		if (strpos($field_id, '[') === false){
+			check_admin_referer( "at-delete-mupload_".urldecode($field_id));
+			$ok = delete_post_meta( $post_id, $field_id );
+			$ok = $ok && wp_delete_attachment( $attachment_id );
+		}else{
+			$f = explode('[',urldecode($field_id));
+			$f_fiexed = array();
+			foreach ($f as $k => $v){
+				$f[$k] = str_replace(']','',$v);
+			}
+			$saved = get_post_meta($post_id,$f[0],true);
+			if (isset($saved[$f[1]][$f[2]])){
+				unset($saved[$f[1]][$f[2]]);
+				$ok = update_post_meta($post_id,$f[0],$saved);
+				$ok = $ok && wp_delete_attachment( $attachment_id );
+			}
+		}
+
+		
+		
+		if ( $ok ){
+			echo json_encode( array('status' => 'success' ));
+			die();
+		}else{
+			echo json_encode(array('message' => __( 'Cannot delete file. Something\'s wrong.')));
+			die();
+		}
+	}
 	
 	/**
 	 * Ajax callback for reordering Images.
@@ -382,6 +421,30 @@ class AT_Meta_Box {
 	}
 	
 	/**
+	 * Check Field code editor
+	 *
+	 * @since 2.1
+	 * @access public
+	 */
+	public function check_field_code() {
+		
+		if ( $this->has_field( 'code' ) && $this->is_edit_page() ) {
+			$plugin_path = $this->SelfPath;
+			// Enqueu codemirror js and css
+			wp_enqueue_style( 'at-code-css', $plugin_path .'/js/codemirror/codemirror.css',array(),null);
+			wp_enqueue_style( 'at-code-css-dark', $plugin_path .'/js/codemirror/solarizedDark.css',array(),null);
+			wp_enqueue_style( 'at-code-css-light', $plugin_path .'/js/codemirror/solarizedLight.css',array(),null);
+			wp_enqueue_script('at-code-js',$plugin_path .'/js/codemirror/codemirror.js',array('jquery'),false,true);
+			wp_enqueue_script('at-code-js-xml',$plugin_path .'/js/codemirror/xml.js',array('jquery'),false,true);
+			wp_enqueue_script('at-code-js-javascript',$plugin_path .'/js/codemirror/javascript.js',array('jquery'),false,true);
+			wp_enqueue_script('at-code-js-css',$plugin_path .'/js/codemirror/css.js',array('jquery'),false,true);
+			wp_enqueue_script('at-code-js-clike',$plugin_path .'/js/codemirror/clike.js',array('jquery'),false,true);
+			wp_enqueue_script('at-code-js-php',$plugin_path .'/js/codemirror/php.js',array('jquery'),false,true);
+			
+		}
+	}
+	
+	/**
 	 * Add Meta Box for multiple post types.
 	 *
 	 * @since 1.0
@@ -411,7 +474,8 @@ class AT_Meta_Box {
 		foreach ( $this->_fields as $field ) {
 			$meta = get_post_meta( $post->ID, $field['id'], !$field['multiple'] );
 			$meta = ( $meta !== '' ) ? $meta : $field['std'];
-			$meta = is_array( $meta ) ? array_map( 'esc_attr', $meta ) : esc_attr( $meta );
+			if ('image' != $field['type'] && $field['type'] != 'repeater')
+				$meta = is_array( $meta ) ? array_map( 'esc_attr', $meta ) : esc_attr( $meta );
 			echo '<tr>';
 		
 			// Call Separated methods for displaying each type of field.
@@ -453,7 +517,8 @@ class AT_Meta_Box {
 					$id = $field['id'].'['.$c.']['.$f['id'].']';
 					$m = $me[$f['id']];
 					$m = ( $m !== '' ) ? $m : $f['std'];
-					$m = is_array( $m) ? array_map( 'esc_attr', $m ) : esc_attr( $m);
+					if ('image' != $f['type'] && $f['type'] != 'repeater')
+						$m = is_array( $m) ? array_map( 'esc_attr', $m ) : esc_attr( $m);
 					//set new id for field in array format
 					$f['id'] = $id;
 					if (!$field['inline']){
@@ -583,7 +648,7 @@ class AT_Meta_Box {
 	 * @since 1.0
 	 * @access public 
 	 */
-	public function show_field_end( $field, $meta ,$group = false) {
+	public function show_field_end( $field, $meta=NULL ,$group = false) {
 		if (isset($field['group'])){
 			if ($group == 'end'){
 				if ( $field['desc'] != '' ) {
@@ -620,6 +685,22 @@ class AT_Meta_Box {
 		echo "<input type='text' class='at-text' name='{$field['id']}' id='{$field['id']}' value='{$meta}' size='30' />";
 		$this->show_field_end( $field, $meta );
 	}
+	
+	/**
+	 * Show Field code editor.
+	 *
+	 * @param string $field 
+	 * @author Ohad Raz
+	 * @param string $meta 
+	 * @since 2.1
+	 * @access public
+	 */
+	public function show_field_code( $field, $meta) {
+		$this->show_field_begin( $field, $meta );
+		echo "<textarea class='code_text' name='{$field['id']}' id='{$field['id']}' data-lang='{$field['syntax']}' data-theme='{$field['theme']}'>{$meta}</textarea>";
+		$this->show_field_end( $field, $meta );
+	}
+	
 	
 	/**
 	 * Show Field hidden.
@@ -737,7 +818,7 @@ class AT_Meta_Box {
 			echo "<textarea class='at-wysiwyg theEditor large-text' name='{$field['id']}' id='{$field['id']}' cols='60' rows='10'>{$meta}</textarea>";
 		}else{
 			// Use new wp_editor() since WP 3.3
-			wp_editor( $meta, $field['id'], array( 'editor_class' => 'at-wysiwyg' ) );
+			wp_editor( html_entity_decode($meta), $field['id'], array( 'editor_class' => 'at-wysiwyg' ) );
 		}
 		$this->show_field_end( $field, $meta );
 	}
@@ -787,53 +868,30 @@ class AT_Meta_Box {
 	/**
 	 * Show Image Field.
 	 *
-	 * @param string $field 
-	 * @param string $meta 
+	 * @param array $field 
+	 * @param array $meta 
 	 * @since 1.0
 	 * @access public
 	 */
 	public function show_field_image( $field, $meta ) {
-		
-		global $wpdb, $post;
-
-		if ( ! is_array( $meta ) ) 
-			$meta = (array) $meta;
-
 		$this->show_field_begin( $field, $meta );
-		
-		echo "{$field['desc']}<br />";
-
-		$nonce_delete = wp_create_nonce( 'at_ajax_delete' );
-		$nonce_sort = wp_create_nonce( 'at_ajax_reorder' );
-
-		echo "<input type='hidden' class='at-images-data' value='{$post->ID}|{$field['id']}|{$nonce_sort}' />";
-		echo "<ul class='at--images at-upload' id='at-images-{$field['id']}'>";
-
-		// re-arrange images with 'menu_order', thanks Onur
-		$meta = ($meta) ? implode( ',', $meta ) : 1;
-		$images = $wpdb->get_col("
-			SELECT ID FROM $wpdb->posts
-			WHERE post_type = 'attachment'
-			AND post_parent = $post->ID
-			AND ID in ($meta)
-			ORDER BY menu_order ASC
-		");
-		
-		foreach ( $images as $image ) {
-			$src = wp_get_attachment_image_src( $image );
-			$src = $src[0];
-
-			echo "<li id='item_{$image}'>";
-				echo "<img src='{$src}' alt='image_{$image}' />";
-				echo "<a title='" . __( 'Delete this image' ) . "' class='at-delete-file' href='#' rel='{$nonce_delete}|{$post->ID}|{$field['id']}|{$image}'><img src='" . $this->SelfPath ."/images/delete-16.png' alt='" . __( 'Delete' ) . "' width='16' height='16' /></a>";
-				//echo "<a title='" . __( 'Delete this image' ) . "' class='at-delete-file' href='#' rel='{$nonce_delete}|{$post->ID}|{$field['id']}|{$image}'>" . __( 'Delete' ) . "</a>";
-				echo "<input type='hidden' name='{$field['id']}[]' value='{$image}' />";
-			echo "</li>";
+		$html = wp_nonce_field( "at-delete-mupload_{$field['id']}", "nonce-delete-mupload_".$field['id'], false, false );
+		if (is_array($meta)){
+			if(isset($meta[0]) && is_array($meta[0]))
+			$meta = $meta[0];
 		}
-		
-		echo '</ul>';
-
-		echo "<a href='#' class='at-upload-button button' rel='{$post->ID}|{$field['id']}'>" . __( 'Add more images' ) . "</a>";
+		if (is_array($meta) && isset($meta['src']) && $meta['src'] != ''){
+			$html .= "<span class='mupload_img_holder'><img src='".$meta['src']."' style='height: 150px;width: 150px;' /></span>";
+			$html .= "<input type='hidden' name='".$field['id']."[id]' id='".$field['id']."[id]' value='".$meta['id']."' />";
+			$html .= "<input type='hidden' name='".$field['id']."[src]' id='".$field['id']."[src]' value='".$meta['src']."' />";
+			$html .= "<input class='at-delete_image_button' type='button' rel='".$field['id']."' value='Delete Image' />";
+		}else{
+			$html .= "<span class='mupload_img_holder'></span>";
+			$html .= "<input type='hidden' name='".$field['id']."[id]' id='".$field['id']."[id]' value='' />";
+			$html .= "<input type='hidden' name='".$field['id']."[src]' id='".$field['id']."[src]' value='' />";
+			$html .= "<input class='at-upload_image_button' type='button' rel='".$field['id']."' value='Upload Image' />";
+		}
+		echo $html;
 	}
 	
 	/**
@@ -1031,7 +1089,6 @@ class AT_Meta_Box {
 			}
 			
 		} // End foreach
-		
 	}
 	
 	/**
@@ -1045,7 +1102,6 @@ class AT_Meta_Box {
 	 * @access public
 	 */
 	public function save_field( $post_id, $field, $old, $new ) {
-		
 		$name = $field['id'];
 		delete_post_meta( $post_id, $name );
 		if ( $new === '' || $new === array() ) 
@@ -1057,9 +1113,28 @@ class AT_Meta_Box {
 		} else {
 			update_post_meta( $post_id, $name, $new );
 		}
-	}
+	}	
 	
 	/**
+	 * function for saving image field.
+	 *
+	 * @param string $post_id 
+	 * @param string $field 
+	 * @param string $old 
+	 * @param string|mixed $new 
+	 * @since 1.7
+	 * @access public
+	 */
+	public function save_field_image( $post_id, $field, $old, $new ) {
+		$name = $field['id'];
+		delete_post_meta( $post_id, $name );
+		if ( $new === '' || $new === array() || $new['id'] == '' || $new['src'] == '') 
+			return;
+		
+		update_post_meta( $post_id, $name, $new );
+	}
+	
+	/*
 	 * Save Wysiwyg Field.
 	 *
 	 * @param string $post_id 
@@ -1070,7 +1145,6 @@ class AT_Meta_Box {
 	 * @access public 
 	 */
 	public function save_field_wysiwyg( $post_id, $field, $old, $new ) {
-		$new = wpautop( $new );
 		$this->save_field( $post_id, $field, $old, $new );
 	}
 	
@@ -1161,7 +1235,6 @@ class AT_Meta_Box {
 	
 	/**
 	 * Save repeater File Field.
-	 *
 	 * @param string $post_id 
 	 * @param string $field 
 	 * @param string $old 
@@ -1334,6 +1407,32 @@ class AT_Meta_Box {
 			return $new_field;
 		}
 	}
+	
+	/**
+	 *  Add code Editor to meta box
+	 *  @author Ohad Raz
+	 *  @since 2.1
+	 *  @access public
+	 *  @param $id string  field id, i.e. the meta key
+	 *  @param $args mixed|array
+	 *  	'name' => // field name/label string optional
+	 *  	'desc' => // field description, string optional
+	 *  	'std' => // default value, string optional
+	 *  	'style' => 	// custom style for field, string optional
+	 *  	'syntax' => 	// syntax language to use in editor (php,javascript,css,html)
+	 *  	'validate_func' => // validate function, string optional
+	 *   @param $repeater bool  is this a field inside a repeatr? true|false(default) 
+	 */
+	public function addCode($id,$args,$repeater=false){
+		$new_field = array('type' => 'code','id'=> $id,'std' => '','desc' => '','style' =>'','name' => 'Code Editor Field','syntax' => 'php','theme' => 'defualt');
+		$new_field = array_merge($new_field, $args);
+		if(false === $repeater){
+			$this->_fields[] = $new_field;
+		}else{
+			return $new_field;
+		}
+	}
+	
 	/**
 	 *  Add Hidden Field to meta box
 	 *  @author Ohad Raz
@@ -1735,6 +1834,7 @@ class AT_Meta_Box {
 		$this->check_field_color();
 		$this->check_field_date();
 		$this->check_field_time();
+		$this->check_field_code();
 	}
 	
 	/**
